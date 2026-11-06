@@ -438,3 +438,77 @@ Mật khẩu đăng nhập vẫn được kiểm tra bằng bản băm như trư
 Yêu cầu cũ chỉ có bản băm không thể khôi phục lại mật khẩu cũ. Admin mở **Chi tiết**, xác minh lại
 và chọn **Cấp lại mật khẩu tạm** khi người dùng chưa đổi mật khẩu. Mật khẩu tạm trước mất hiệu lực.
 Không cấp lại theo yêu cầu cũ nếu tài khoản đã đổi mật khẩu hoặc có yêu cầu khác được xử lý mới hơn.
+
+### Điện thoại bắt buộc và thông báo admin trực tiếp
+
+Tài khoản đăng nhập nhưng thiếu số điện thoại hợp lệ sẽ thấy hộp thoại bắt buộc bổ sung,
+bao gồm người mới đăng nhập Google và tài khoản đã có trước đây. Nhập 9–15 chữ số,
+có thể bắt đầu bằng `+`; đây là kiểm tra định dạng, chưa phải xác minh OTP.
+Hộp thoại không đóng bằng Escape/click ngoài; có thể lưu hoặc đăng xuất.
+Gửi yêu cầu mượn/gia hạn cũng được chặn ở backend nếu còn thiếu điện thoại.
+
+Admin soạn tại `/admin/announcements`: gửi tất cả tài khoản đang hoạt động, nhóm độc giả,
+nhóm thủ thư hoặc một người. Người nhận được chốt lúc gửi; tài khoản tạo sau không nhận thông báo cũ.
+Người dùng đang mở web có polling mỗi 5 giây (`/live-updates`), hiện hộp thoại nội dung an toàn
+bằng textContent, không render HTML do người soạn nhập. Bấm **Đã đọc** để xác nhận;
+người ngoại tuyến nhận khi quay lại, xem lại tại `/inbox`. Trạng thái đã đọc đồng bộ giữa các tab.
+Hộp thoại bổ sung điện thoại được ưu tiên trước thông báo admin; không bỏ sót thông báo trong lúc bổ sung.
+Không phải push notification của hệ điều hành, không hiện khi trình duyệt đã đóng.
+Sau lần nâng cấp này cần tải lại tab cũ một lần để nhận JS mới, sau đó thông báo không cần reload.
+
+Thông báo admin (cập nhật): không gửi/hiện thông báo cho vai trò admin, không bắt admin nhập điện thoại.
+Người dùng nhận ô nhỏ góc phải dưới, tự ẩn sau 7 giây, không khóa trang hoặc giành focus.
+Ẩn thông báo được ghi nhận trong localStorage của trình duyệt để không lặp lại qua polling;
+không tự đánh dấu đã đọc chỉ vì hết thời gian. Nội dung vẫn xem lại ở `/inbox`.
+
+
+### Tin nhắn trên web
+
+- Mở `/messenger` hoặc chọn **Tin nhắn**. Chọn nút soạn để tìm người nhận theo tên/vai trò.
+- Chat riêng giữa hai tài khoản: văn bản, emoji, tìm cuộc trò chuyện, tải lịch sử cũ, trạng thái online/đang nhập/đã xem.
+- Tin nhắn cập nhật khoảng 2,5 giây khi mở khung chat; số tin chưa đọc trên menu cập nhật khoảng 10 giây ở trang khác.
+- Enter gửi tin; Shift + Enter xuống dòng. Bản nháp được giữ trong phiên của tab trình duyệt, tin đã gửi lưu trong SQLite (`chat_threads`, `chat_messages`).
+- Mỗi tin tối đa 4.000 ký tự, giới hạn 60 tin/phút/tài khoản. Chỉ hai thành viên cuộc trò chuyện được truy cập nội dung qua API. Danh bạ chat chỉ hiển thị tên/vai trò/trạng thái, không cung cấp email, điện thoại hoặc IP.
+- Hỗ trợ văn bản, emoji, ảnh JPG/PNG/WebP (tối đa 5 MB), PDF/TXT UTF-8 (tối đa 10 MB), trả lời tin nhắn, 6 cảm xúc, chỉnh sửa trong 15 phút và thu hồi với mọi người. Tìm nội dung trong cuộc trò chuyện bằng nút kính lúp. Chưa có cuộc gọi hoặc chat nhóm. Khi xóa tài khoản, các cuộc trò chuyện liên quan cũng được xóa.
+
+- Ảnh đính kèm được chuẩn hóa JPEG trước khi lưu; ảnh/tệp chỉ tải được bởi hai người trong cuộc trò chuyện. Thu hồi xóa nội dung và tệp khỏi cuộc trò chuyện hiện tại; trích dẫn đổi thành “Tin nhắn đã thu hồi”. Tệp người nhận đã tải về trước đó vẫn có thể tồn tại trên máy của họ.
+- Chỉnh sửa, thu hồi và cảm xúc đồng bộ qua `chat_changes`; không cần tải lại trang. Nâng cấp tự thêm cột vào bảng chat cũ và sao lưu SQLite trước khi thay đổi, giữ lịch sử hiện có.
+
+
+### Quyền riêng tư và liên hệ chat
+
+- User/thủ thư chỉ thấy bạn bè đã thêm, không thấy danh bạ toàn website. Thêm bạn bằng đúng email đã đăng ký; không gợi ý theo email một phần. Email chưa có tài khoản sẽ được báo rõ. Việc thêm tạo liên hệ cho cả hai người, chưa có bước duyệt lời mời.
+- Admin giữ danh sách toàn bộ tài khoản và có thể bắt đầu chat. Khi admin mở chat, người nhận có thể trả lời. Chặn chat vẫn áp dụng cho cả admin; không ảnh hưởng các thông báo quản trị khác.
+- Menu ba chấm trên đầu chat có Chặn/Bỏ chặn và Xóa liên hệ và chat. Chặn ngăn gửi tin, sửa tin, cảm xúc, trạng thái đang nhập ở cả hai phía. Vẫn có thể xem lịch sử và thu hồi tin của mình. Danh sách đã chặn ở cột trái cho phép bỏ chặn.
+- Xóa liên hệ gỡ bạn bè ở hai bên, ẩn cuộc trò chuyện và xóa quyền xem lịch sử cũ ở phía người xóa. Người kia giữ lịch sử của họ. Muốn nhắn lại, user cần thêm bằng email; việc thêm lại không khôi phục lịch sử đã xóa ở phía mình. Không xóa tài khoản website.
+- Ảnh đại diện được tải lên tại Hồ sơ cá nhân: JPG/PNG/WebP tối đa 5 MB, lưu JPEG vuông 256×256. User chỉ xem avatar của mình, bạn bè hoặc người có cuộc trò chuyện cùng; admin xem được toàn bộ.
+
+### Chụp ảnh để gửi trong chat
+
+Bấm biểu tượng **camera** cạnh ô nhập tin nhắn. Cho phép camera trong trình duyệt, chụp ảnh rồi chọn **Dùng ảnh này**. Ảnh xuất hiện trong bản nháp; bấm **Gửi** để gửi. Có nút đổi camera, chụp lại và chọn ảnh từ thiết bị. Camera tự tắt khi chụp xong, đóng hộp thoại hoặc rời tab. Tính năng dùng camera cần HTTPS hoặc `localhost`/`127.0.0.1`; trên điện thoại có thể chọn ảnh/chụp bằng nút chọn ảnh từ thiết bị nếu trình duyệt hỗ trợ.
+
+### Chat nổi trên trang người dùng
+
+Tài khoản độc giả/thủ thư có biểu tượng chat ở góc dưới bên phải thay cho mục Tin nhắn trên menu. Bấm để mở khung chat gọn; nút dấu trừ thu nhỏ, nút mở rộng chuyển đến trang chat đầy đủ. Số tin chưa đọc hiển thị màu đỏ. Khung nhớ cuộc trò chuyện/bản nháp và trạng thái mở trong phiên trình duyệt; khi thu nhỏ sẽ tắt camera, tạm dừng tải và đánh dấu đã đọc. Admin tiếp tục dùng trang chat hiện có.
+
+### Chat nhóm
+
+- Bấm biểu tượng **Tạo nhóm** (người kèm dấu cộng) cạnh nút soạn tin. Đặt tên và chọn ít nhất 1 người khác; nhóm tối đa 50 thành viên. User chỉ mời bạn bè đã thêm, admin được chọn toàn bộ tài khoản hoạt động.
+- Nhóm dùng chung gửi tin/ảnh/tệp, camera, trả lời, cảm xúc, sửa/thu hồi, tìm kiếm, đang nhập và số người đã xem. Chọn menu ba chấm → **Thông tin & thành viên nhóm** để quản lý.
+- Trưởng nhóm được đổi tên, thêm/xóa thành viên và chuyển quyền. Cần chuyển quyền trước khi rời nếu còn thành viên khác. Người mới hoặc được mời lại chỉ đọc tin từ lần tham gia gần nhất; người đã rời/bị xóa không còn đọc hoặc tải tệp nhóm.
+- Không thể mời các tài khoản có quan hệ chặn vào cùng nhóm. Nếu chặn sau khi đã ở chung nhóm, người có quan hệ chặn không gửi/sửa/thả cảm xúc được cho đến khi bỏ chặn hoặc rời nhóm; vẫn có thể thu hồi tin của mình.
+- Database được sao lưu trước khi nâng cấp cấu trúc chat riêng để dùng chung cho nhóm. Lịch sử và tệp chat riêng giữ nguyên. Xóa tài khoản không xóa nhóm; nhóm tự chuyển quyền nếu trưởng nhóm bị xóa, tin cũ hiển thị “Thành viên đã xóa”.
+
+### Đăng ký có xác nhận và liên kết Google
+
+- Đăng ký độc giả gồm 2 bước: chọn Google để xác nhận email, sau đó hoàn tất họ tên/điện thoại và đặt mật khẩu riêng cho website. Email lấy từ Google; không nhập mật khẩu Gmail vào website.
+- Máy chủ kiểm tra chữ ký token Google, client ID, thời hạn, nonce, email_verified và email khớp trước khi tạo tài khoản. User và GoogleIdentity được lưu trong cùng giao dịch; không có tài khoản mới bị bỏ lại chưa liên kết khi gặp lỗi.
+- Nút Google trên trang đăng nhập vẫn có thể tạo độc giả mới đã liên kết ngay, không có mật khẩu riêng như luồng trước.
+- Tài khoản cũ, tài khoản bootstrap hoặc do admin cấp chưa liên kết vẫn đăng nhập bằng mật khẩu. Banner “Tài khoản chưa liên kết Google” dẫn đến Hồ sơ → Phương thức đăng nhập. Người dùng nhập mật khẩu thư viện hiện tại rồi chọn đúng Google cùng email để liên kết. Không tự gắn danh tính Google chỉ dựa trên email đã nhập.
+- Banner có ở tất cả vai trò chưa liên kết; trạng thái cập nhật mỗi 5 giây qua live-updates, không cần reload. Admin thấy trạng thái Google rõ ở Tài khoản và Chỉnh sửa tài khoản. Chỉ người sở hữu tài khoản có thể xác nhận Google; admin không liên kết thay.
+
+### Mốc khôi phục trước khi thêm hiệu ứng giao diện
+
+Phiên bản sau khi bỏ ô Email lặp ở bước 2 đăng ký được lưu lên GitHub trước khi thêm hiệu ứng chuyển động. Email đăng ký được lấy ở máy chủ từ xác nhận Google của bước 1; người dùng không cần nhập lại.
+
+Các thay đổi làm giao diện mượt hơn sẽ được giữ riêng trên máy để xem thử trước khi cập nhật tiếp lên GitHub. Có thể xem thay đổi bằng `git diff` và tìm mốc đã lưu bằng lịch sử commit trên GitHub. Database SQLite và tệp phiên làm việc trong `instance/` không thuộc bản lưu mã nguồn.

@@ -1,0 +1,21 @@
+/* Keep dialog layout separate so a cached main stylesheet cannot turn it into a page section. */
+.live-overlay[hidden]{display:none!important}
+.live-overlay{position:fixed;inset:0;z-index:2500;display:flex;align-items:center;justify-content:center;background:rgba(19,27,46,.48);backdrop-filter:blur(4px);padding:16px}
+.live-modal{box-sizing:border-box;width:100%;max-width:540px;max-height:90vh;overflow:auto;background:#fff;border:0;border-radius:16px;padding:28px;box-shadow:0 20px 70px #131b2e40}
+.live-modal-open{overflow:hidden}
+.live-modal.phone-compact{max-width:360px;padding:24px;border-radius:14px}
+.phone-heading{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.phone-heading>span{font-size:22px;color:#1e40af;background:#f2f3ff;padding:8px;border-radius:10px}
+.phone-heading #phoneRequiredTitle{font-size:19px;line-height:1.4;margin:0;letter-spacing:-.3px}
+.phone-compact>p{font-size:12px;color:#757684;line-height:1.6;margin:0 0 18px}
+.phone-compact .phone-label{display:block;font-size:12px;margin-bottom:7px}
+.phone-compact #requiredPhone{box-sizing:border-box;display:block;width:100%;font-size:15px;padding:11px 12px;border:1px solid #e2e7ff;border-radius:8px;background:#f7f8ff}
+.phone-compact #requiredPhoneForm>.btn{width:100%;padding:11px;font-size:13px}
+.phone-compact .live-error{font-size:12px;line-height:1.5;margin:8px 0;color:#ba1a1a}
+.phone-compact .live-error:empty{display:none}
+.phone-compact #requiredPhoneForm>.btn{margin-top:12px}
+.phone-logout{text-align:center;margin-top:14px}
+.phone-logout button{border:0;background:transparent;color:#757684;font:inherit;font-size:12px;cursor:pointer;padding:3px 8px}
+.phone-logout button:hover{color:#00288e;text-decoration:underline}
+@media(max-width:400px){.live-modal.phone-compact{padding:20px}}
+.announcement-toast[hidden]{display:none!important}.announcement-toast{position:fixed;right:22px;bottom:22px;z-index:2400;width:340px;max-width:calc(100vw - 32px);padding:18px 20px;background:white;border:1px solid #dde1ff;border-left:4px solid #1e40af;border-radius:12px;box-shadow:0 10px 40px #131b2e26;animation:toast-in .2s ease-out}.toast-heading{display:flex;gap:8px;align-items:center;color:#1e40af;margin-bottom:10px}.toast-heading>span{font-size:20px}.toast-heading small{font-size:11px}.announcement-toast>strong{display:block;padding-right:15px;font-size:14px;overflow-wrap:anywhere}.announcement-toast>p{font-size:12px;color:#444653;line-height:1.6;margin:8px 0 14px;white-space:pre-wrap;overflow-wrap:anywhere;display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden}.toast-dismiss{position:absolute;right:9px;top:6px;border:0;background:transparent;color:#757684;font-size:23px;cursor:pointer;padding:0 5px}.toast-footer{display:flex;align-items:center;justify-content:space-between;gap:10px}.toast-footer a{font-size:11px;color:#1e40af}.toast-footer small{font-size:10px;color:#757684}@keyframes toast-in{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}@media(max-width:480px){.announcement-toast{right:16px;bottom:16px}}@media(prefers-reduced-motion:reduce){.announcement-toast{animation:none}}

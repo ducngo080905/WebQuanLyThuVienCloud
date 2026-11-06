@@ -1,0 +1,92 @@
+/* Administration: readable tables and consistent spacing, isolated from reader pages. */
+.staff-body { line-height: 1.65; }
+.staff-body .sidebar .brand { flex-shrink: 0; }
+.staff-body .nav { flex: 1; min-height: 0; padding-bottom: 16px; }
+.staff-body .nav a { gap: 12px; padding: 11px 12px; line-height: 1.5; }
+.staff-body .nav .material-symbols-outlined { flex: 0 0 24px; text-align: center; }
+.staff-body .branch { flex-shrink: 0; margin: 12px 16px 16px; }
+.staff-body .main { max-width: 1920px; }
+.staff-body .page-header { gap: 4px; }
+.staff-body .page-header p { max-width: 780px; line-height: 1.7; }
+.staff-body .page-header:has(>.btn) { padding-right: 210px; }
+.staff-body .page-header:has(>.btn) p { max-width: 100%; }
+.staff-body .eyebrow { margin-bottom: 2px; }
+.staff-body .card { border: 1px solid #eceef7; }
+.staff-body .card > h3 { line-height: 1.5; margin-bottom: 8px; }
+.staff-body .section-header { align-items: flex-start; gap: 12px 24px; }
+.staff-body .section-header h3 { line-height: 1.5; }
+.staff-body .hint { font-size: 12px; line-height: 1.65; color: #646b7b; }
+.staff-body .stat-card { padding: 24px; min-height: 150px; }
+.staff-body .stat-card .label { font-size: 12px; letter-spacing: .3px; line-height: 1.6; padding-right: 48px; }
+.staff-body .stat-card .value { line-height: 1.2; margin: 14px 0 8px; overflow-wrap: anywhere; }
+.staff-body .stat-card .icon-bg { right: 18px; top: 20px; }
+.staff-body table { white-space: normal; line-height: 1.6; }
+.staff-body th { font-size: 11px; letter-spacing: .3px; line-height: 1.5; padding: 14px 20px; white-space: nowrap; }
+.staff-body td { padding: 18px 20px; min-width: 100px; max-width: 340px; overflow-wrap: anywhere; }
+.staff-body td > .hint { margin-top: 7px; }
+.staff-body td .badge { white-space: nowrap; }
+.staff-body .badge { line-height: 1.5; }
+.staff-body .btn { line-height: 1.5; }
+.staff-body .btn-sm { font-size: 12px; padding: 8px 12px; white-space: nowrap; }
+.staff-body .table-actions, .staff-body .account-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; min-width: 180px; }
+.staff-body .book-delete-form { margin: 0; }
+.staff-body .book-cell { min-width: 200px; align-items: flex-start; }
+.staff-body .book-cell > div { min-width: 0; }
+.staff-body .book-cell a { text-decoration: none; }
+.staff-body .book-cell a:hover { text-decoration: underline; }
+.staff-body .book-cell small { font-size: 11px; margin-top: 6px; }
+.staff-body .book-cover { flex-shrink: 0; }
+.staff-body .table-wrap { scrollbar-width: thin; scrollbar-color: #c5cbe1 #f5f6fc; }
+.staff-body .table-wrap:focus-within { outline-offset: -2px; }
+.staff-body .accounts-table { min-width: 1060px; }
+.staff-body .accounts-table td:first-child { min-width: 150px; }
+.staff-body .accounts-table td:nth-child(2) { min-width: 200px; max-width: 250px; }
+.staff-body .accounts-table td:nth-child(3) { min-width: 170px; }
+.staff-body .accounts-table td:nth-child(5) { min-width: 140px; }
+.staff-body .accounts-table td:nth-child(6) { min-width: 130px; }
+.staff-body .accounts-table td:last-child { min-width: 210px; }
+.staff-body .presence-devices { line-height: 1.6; }
+.staff-body .accounts-overview { gap: 16px; }
+.staff-body .account-group-link { min-width: 190px; border: 1px solid #eceef7; }
+.staff-body .account-group-link strong { line-height: 1.3; margin-top: 6px; }
+.staff-body .toolbar { gap: 12px 16px; }
+.staff-body .report-controls .toolbar + .toolbar { border-top: 1px solid #eceef7; padding-top: 20px; margin-top: 20px; }
+.staff-body .report-controls .toolbar > .hint { flex-basis: 100%; margin: 0; }
+.staff-body .report-stats { grid-template-columns: repeat(3,minmax(0,1fr)); }
+.staff-body .review-form { min-width: 260px; gap: 10px; }
+.staff-body .return-form { min-width: 220px; gap: 10px; }
+.staff-body .review-form label, .staff-body .return-form label { font-size: 12px; line-height: 1.5; }
+.staff-body .return-form input { padding: 8px; font-size: 12px; max-width: 145px; }
+.staff-body .form-grid { gap: 20px 24px; }
+.staff-body .form-group { gap: 8px; min-width: 0; }
+.staff-body label { line-height: 1.5; }
+.staff-body .account-form { gap: 14px; margin-top: 20px; }
+.staff-body .modal-actions { flex-wrap: wrap; gap: 10px; }
+.staff-body .legend { flex: 1; min-width: 160px; }
+.staff-body .legend p { display: flex; justify-content: space-between; gap: 24px; font-size: 13px; }
+.staff-body .timeline-item p { margin-top: 5px; overflow-wrap: anywhere; }
+.staff-body .message-history summary { line-height: 1.6; }
+@media (max-width:1200px) {
+  .staff-body .stat-grid { grid-template-columns: repeat(2,minmax(0,1fr)); }
+  .staff-body .report-stats { grid-template-columns: repeat(3,minmax(0,1fr)); }
+  .staff-body .analytics-grid { grid-template-columns: 1fr; }
+}
+@media (max-width:640px) {
+  .staff-body .nav a { justify-content: center; padding: 13px 8px; }
+  .staff-body .page-header:has(>.btn) { padding-right: 0; }
+  .staff-body .page-header p { font-size: 13px; }
+  .staff-body .stat-card { padding: 16px; min-height: 130px; }
+  .staff-body .stat-card .label { font-size: 11px; padding-right: 0; padding-top: 30px; }
+  .staff-body .stat-card .icon-bg { top: 12px; right: 12px; }
+  .staff-body .report-stats { grid-template-columns: 1fr; }
+  .staff-body .accounts-overview > a { flex: 1; }
+  .staff-body .accounts-overview > #presenceUpdate { margin-left: 0; width: 100%; }
+  .staff-body .toolbar > input, .staff-body .toolbar > select { min-width: 0; max-width: 100%; }
+  .staff-body .table-footer { flex-wrap: wrap; gap: 8px; }
+}
+@media print {
+  .staff-body .main { max-width: none; }
+  .staff-body th, .staff-body td { min-width: 0; padding: 8px; }
+  .staff-body .stat-grid { grid-template-columns: repeat(3,minmax(0,1fr)); }
+  .staff-body .stat-card { min-height: 70px; padding: 12px; }
+}

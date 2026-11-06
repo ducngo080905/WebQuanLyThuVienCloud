@@ -81,3 +81,66 @@ Chưa triển khai hosting online; push GitHub chỉ đưa code lên, không t�
 > Đây là dự án quản lý thư viện của tôi. Đọc HANDOFF.md và README.md, kiểm tra mã nguồn và git status,
 > rồi tiếp tục từ trạng thái hiện tại. Giữ dữ liệu instance/ và các quyết định trong HANDOFF.md.
 > Yêu cầu tiếp theo của tôi là: ...
+
+## Bổ sung 06/11/2026: thông báo trực tiếp
+
+- `app/messages.py`, `live_updates.js`, `live_overlays.html`: bắt buộc bổ sung điện thoại, polling 5 giây.
+- `Announcement`, `AnnouncementReceipt`: admin soạn cho tất cả/nhóm/từng người tại `/admin/announcements`.
+- Hộp thư người dùng `/inbox`, trạng thái đã đọc theo tài khoản. Người chưa mở web nhận khi quay lại.
+- Có modal điện thoại cho Google mới và tài khoản cũ chưa có số; chưa xác minh OTP.
+- Kiểm thử mới `tests/test_messages.py`; xem kết quả chạy test hiện tại thay vì suy đoán từ mốc cũ.
+
+
+## Messenger trên web
+- Thêm `app/chat.py`, models `ChatThread`/`ChatMessage`, trang `/messenger`, menu cho staff/reader và badge tin chưa đọc trên mọi trang đăng nhập.
+- API `/chat/api/…` kiểm tra thành viên cho mọi thao tác, CSRF theo app hiện tại, nonce chống gửi trùng, cursor đọc tăng dần, lịch sử phân trang, trạng thái nhập và online từ LivePresence. Poll chat 2,5 giây, badge 10 giây.
+- UI riêng `messenger.css/js`, responsive 2 cột/1 màn hình trên điện thoại, dùng textContent cho tin nhắn, không render HTML người dùng.
+- Chat văn bản/emoji/ảnh/PDF/TXT, trả lời, cảm xúc, chỉnh sửa 15 phút, thu hồi, tìm kiếm. Chưa có gọi/chat nhóm. Xóa User sẽ cascade xóa cuộc trò chuyện liên quan. Các bảng mới được `db.create_all()` thêm khi khởi động, không thay bảng cũ.
+
+- Mở rộng chat: `ChatAttachment` blob deferred, `ChatReaction` một cảm xúc/người/tin, `ChatChange` cursor đồng bộ sửa/thu hồi/cảm xúc. `ChatMessage.reply_id/edited_at/deleted_at` nâng cấp thêm bằng schema.py có backup, không thay bảng cũ. Ảnh dùng read_cover để chuẩn hóa; PDF/TXT tải xuống, kiểm tra thành viên ở mọi lượt tải, no-store/nosniff.
+- Frontend v2: toolbar trên tin, composer context trả lời/chỉnh sửa, chọn 1 tệp/lượt, preview ảnh, search panel phân trang/context jump. Thu hồi có hộp xác nhận; nội dung/tệp bị xóa, trích dẫn cập nhật, không thể thu hồi bản đã được người nhận tải xuống ngoài web.
+
+
+## Chat privacy / contacts / avatar
+- Added ChatContact (directed rows, created/deleted reciprocally), ChatBlock (one-way blocking, enforced in both directions), ChatState (per-user clear cursor + hidden), UserAvatar. New tables only, startup create_all.
+- Non-admin overview returns friends only; POST /chat/api/contacts/add exact full email (no suggestions) adds both sides. Non-admin start/send require friend; admin directory remains global and admin start/send establishes reciprocal contact for replies. No automatic migration of old threads into friends.
+- Block endpoints prevent send/edit/react/typing, including admin, mask online/typing. Recall/read/history still allowed. Remove-contact deletes friendship both sides, hides/clears only caller history via cursor; all reads/search/attachment/quotes/updates enforce clear cursor. Other participant keeps history, User not deleted.
+- /profile/avatar POST normalizes through read_cover then square256; /chat/api/avatars/<id> access scoped to own/admin/friend/existing conversation. Avatar used on profile, header, chat contacts/thread/peer.
+- UI v3: tools beside bubble, red unread badge, exact-email add form for non-admin, header menu block/delete, blocked manager.
+
+## Hồ sơ cá nhân và sửa avatar tràn
+- Trang profile dùng profile.css/profile.js riêng: thẻ danh tính/ảnh bên trái, thông tin cá nhân, mục bảo mật đóng/mở và liên kết Google bên phải; responsive một cột. Giữ nguyên các trường và quy tắc POST /profile, forced temporary password, Google linking.
+- Header avatar có kích thước HTML/inline 36×36 dự phòng và account_ui.css riêng, tránh ảnh nguyên kích thước khi CSS chính còn cache. library.css v7. Profile avatar 112 px, xem trước ảnh trước lưu, kiểm tra 5 MB/20 MP phía client bổ sung cho kiểm tra server.
+- Đã kiểm tra trực tiếp IAB: ảnh header/profile đúng kích thước, các cột không tràn, bảo mật mở/đóng được. 25 kiểm thử auth/avatar qua. Ảnh kiểm tra tại instance/profile-redesign.png (ignored).
+
+## Chụp ảnh trong chat
+- Nút camera trong ô soạn mở hộp chụp ảnh: xem camera, đổi trước/sau nếu thiết bị hỗ trợ, chụp lại, dùng ảnh hoặc chọn ảnh từ thiết bị. Ảnh chỉ được đưa vào bản nháp; người dùng bấm Gửi để gửi.
+- Camera xin quyền khi người dùng bấm nút; không bật microphone. Cần HTTPS hoặc localhost. Đóng hộp thoại, chụp xong, rời tab/trang sẽ dừng camera; kết quả cấp quyền đến muộn cũng được giải phóng.
+- Ảnh chụp JPEG cạnh dài tối đa 1600 px và giới hạn 5 MB, đi qua cùng API ảnh riêng tư hiện có. Nút tắt khi sửa tin/không có quyền gửi. Không lưu nếu cuộc trò chuyện đã đổi.
+- `node --test tests/chat_camera.test.cjs` kiểm tra quyền đến muộn, đóng khi chụp, tắt camera, chụp lại, đổi camera và giới hạn ảnh.
+
+## Chat nổi dành cho người dùng
+- User và thủ thư dùng nút chat nổi góc dưới phải; admin giữ menu/trang chat đầy đủ. Khung 420 px bo24, chuyển động mở/đóng, badge đỏ, nút mở trang đầy đủ; responsive và prefers-reduced-motion.
+- Widget chỉ tạo iframe /messenger?embed=1 khi mở lần đầu. Embed không có nav/overlays/presence/badge lặp, không đọc flash của trang cha. Dùng cùng giao diện/API/quyền chat hiện có.
+- PostMessage kiểm tra origin + source. Khi thu nhỏ, frame dừng poll/đánh dấu đã đọc và đóng camera; giữ bản nháp. Nhớ trạng thái mở/cuộc chat trong sessionStorage theo user.
+- 90 pytest qua; đã kiểm tra nút nổi và mở/thu nhỏ bằng IAB với dữ liệu mẫu. Phiên cookie riêng của preview không duy trì trong các request động ở IAB; HTTP integration cùng cookie riêng xác nhận overview/embed 200. Không xác nhận trực quan toàn bộ chat embedded bằng IAB. Xem thử dùng SQLite memory, không dùng dữ liệu thật; screenshot instance/chat-widget-corner.png.
+- Lưu ý khi mở preview tương lai: luôn dùng tên cookie riêng ngay từ đầu hoặc hostname riêng; không dùng library_session chung host với web chính dù khác port.
+
+## Chat nhóm
+- ChatThread low_id/high_id nullable cho nhóm; ChatGroup metadata + ChatGroupMember (owner/active/joined_after/last_read/typing). ChatMessage/attachment/reaction/change dùng chung. Nhóm 2–50 người, user mời contacts/admin toàn bộ, check block mọi cặp thành viên.
+- schema.upgrade_chat_threads rebuild nguyên tử bảng chat_threads với backup schema-backup-groups, giữ ID, message/file refs/indexes và unique pair direct; chưa bao giờ tạo user giả. Đã kiểm tra upgrade thật: các số lượng account/thread/message/attachment cũ không đổi.
+- chat_groups.py đăng ký trên blueprint chat; membership authorization áp dụng mọi message/search/file/edit/react route, active owner-only management, join/rejoin history cutoff, transfer/leave và owner recovery sau account delete. API group_reads để cập nhật số người đã xem; quote/sender names dùng tên người gửi trong nhóm.
+- User before_delete retires sender_id của tin còn tồn tại thành -message.id để tránh SQLite tái dùng user ID gán tin cũ cho người mới; direct threads vẫn cascade xóa theo cơ chế cũ.
+- UI v6 tạo nhóm, picker theo contacts, group avatar/name/sender labels, quản lý/transfer/remove confirm 2 click và leave confirm. Dùng được cả embed/widget. Kiểm tra trực tiếp hộp tạo nhóm bằng IAB, chỉ chọn trong form, không tạo nhóm thật hoặc gửi tin. Screenshot instance/create-chat-group.png.
+- 94 pytest toàn app qua trước test sender-ID reuse bổ sung; 5 group tests + direct deletion pass sau sửa sender retirement. Camera 5 Node tests qua. Tên cookie preview luôn giữ riêng theo lưu ý trước.
+
+## Registration requires verified Google / legacy link reminder
+- Public POST /register now requires google_credential proof validated with the real Google verifier (signature/audience/issuer/expiry + nonce/email_verified/Google Gmail or Workspace). Typed email must equal verified email. create_account accepts optional google_subject and atomically flushes User + GoogleIdentity then commits; setup/admin-created password accounts stay possible and get reminders.
+- Registration GSI callback only decodes signed payload for UX autofill (name/email), puts original token in hidden input associated via form=registrationForm, enables submit. Backend never trusts decoded client fields. Registration still supports a separate website password, clearly labelled; existing login Google auto-register path remains linked and passwordless.
+- googleLinkNotice SSR banner for every unlinked current user, excluded from chat embed, updated by live_updates v3 /live-updates google_link_required bool (including admin). Profile #google-account target; admin account list/editor clearly identify unlinked email vs linked Google. No automatic legacy linking/merging; existing profile link still requires current password and matching verified email.
+- google_account.css separate from library CSS v8 to avoid stale cache. UI verified on localhost:5001/register preview, SQLite memory, random secret, SESSION_COOKIE_NAME library_registration_preview (no real session changed); no Google account consent or linking performed by agent. Screenshot instance/google-linked-registration.png.
+- 105 pytest passed incl 10 new Google registration tests with real locally signed RSA tokens and mocked cert transport, checking plain-signup rejection, nonce/expiry/email/sig/CSRF rejection, rollback on subject conflict, legacy reminder live add/remove, admin warnings. Existing auth tests now explicitly seed pre-Google accounts with legacy_account helper to retain migration/password behavior coverage.
+
+## Checkpoint trước UI smooth (2026-11-06)
+- Đã bỏ hẳn trường Email ở bước 2 /register. Callback Google chỉ hiển thị email ở trạng thái bước 1; server lấy email từ registration_google_claims, không phụ thuộc trường email do client gửi. Nếu client cố gửi email khác proof vẫn bị từ chối.
+- Yêu cầu người dùng: cập nhật repo origin/main hiện có sau thay đổi signup, rồi mới làm smooth. Staging chỉ app/, tests/, README.md, HANDOFF.md; không thêm file untracked ad hoặc instance/secret/database. Các hiệu ứng smooth phải để local khi chờ người dùng xem, checkpoint GitHub vẫn là bản trước smooth.

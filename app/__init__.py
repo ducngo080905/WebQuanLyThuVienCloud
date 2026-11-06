@@ -46,10 +46,17 @@ def create_app(config=None):
     from app.features import features, install_features
     app.register_blueprint(features)
     install_features(app)
+    from app.messages import messages, install_messages
+    app.register_blueprint(messages)
+    install_messages(app)
+    from app.chat import chat
+    app.register_blueprint(chat)
 
     @app.errorhandler(413)
     def upload_too_large(error):
-        from flask import flash, redirect, url_for
+        from flask import flash, redirect, url_for, request, jsonify
+        if request.path.startswith('/chat/api/'):
+            return jsonify(error='Tệp quá lớn. Ảnh tối đa 5 MB, PDF/TXT tối đa 10 MB.'), 413
         flash('Tệp tải lên quá lớn. Tổng tệp tối đa 32 MB; ảnh tối đa 5 MB, PDF đọc thử tối đa 10 MB.', 'danger')
         return redirect(url_for('main.books'), code=303)
 

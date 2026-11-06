@@ -259,3 +259,145 @@ class RecoveryCredential(db.Model):
     account_guard = db.Column(db.String(64), nullable=False)
     expires_at = db.Column(db.DateTime, nullable=False)
     recovery = db.relationship('AccountRecovery', backref=db.backref('credential', uselist=False, cascade='all, delete-orphan'))
+
+
+class Announcement(db.Model):
+    __tablename__ = 'announcements'
+    id = db.Column(db.Integer, primary_key=True)
+    title = db.Column(db.String(150), nullable=False)
+    body = db.Column(db.Text, nullable=False)
+    audience = db.Column(db.String(20), nullable=False)
+    target_id = db.Column(db.Integer, db.ForeignKey('users.id'))
+    sender_id = db.Column(db.Integer, db.ForeignKey('users.id'))
+    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    sender = db.relationship('User', foreign_keys=[sender_id])
+
+
+class AnnouncementReceipt(db.Model):
+    __tablename__ = 'announcement_receipts'
+    announcement_id = db.Column(db.Integer, db.ForeignKey('announcements.id'), primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), primary_key=True)
+    read_at = db.Column(db.DateTime)
+    announcement = db.relationship('Announcement', backref=db.backref('receipts',cascade='all, delete-orphan'))
+    user = db.relationship('User',backref=db.backref('announcement_receipts',cascade='all, delete-orphan'))
+
+
+class ChatThread(db.Model):
+    __tablename__ = 'chat_threads'
+    id = db.Column(db.Integer, primary_key=True)
+    low_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True, index=True)
+    high_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True, index=True)
+    low_read = db.Column(db.Integer, nullable=False, default=0)
+    high_read = db.Column(db.Integer, nullable=False, default=0)
+    low_typing = db.Column(db.DateTime)
+    high_typing = db.Column(db.DateTime)
+    updated_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow, index=True)
+    low_user = db.relationship('User', foreign_keys=[low_id], backref=db.backref('chats_low', cascade='all, delete-orphan'))
+    high_user = db.relationship('User', foreign_keys=[high_id], backref=db.backref('chats_high', cascade='all, delete-orphan'))
+    __table_args__ = (db.UniqueConstraint('low_id', 'high_id'), db.CheckConstraint('low_id < high_id'))
+
+
+class ChatMessage(db.Model):
+    __tablename__ = 'chat_messages'
+    id = db.Column(db.Integer, primary_key=True)
+    thread_id = db.Column(db.Integer, db.ForeignKey('chat_threads.id'), nullable=False, index=True)
+    sender_id = db.Column(db.Integer, nullable=False, index=True)
+    body = db.Column(db.Text, nullable=False)
+    reply_id = db.Column(db.Integer, db.ForeignKey('chat_messages.id', ondelete='SET NULL'))
+    edited_at = db.Column(db.DateTime)
+    deleted_at = db.Column(db.DateTime)
+    client_id = db.Column(db.String(64), nullable=False)
+    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    thread = db.relationship('ChatThread', backref=db.backref('messages', cascade='all, delete-orphan'))
+    __table_args__ = (db.UniqueConstraint('sender_id', 'client_id'), db.Index('ix_chat_thread_message', 'thread_id', 'id'))
+
+
+class ChatAttachment(db.Model):
+    __tablename__ = 'chat_attachments'
+    message_id = db.Column(db.Integer, db.ForeignKey('chat_messages.id'), primary_key=True)
+    filename = db.Column(db.String(200), nullable=False)
+    mimetype = db.Column(db.String(100), nullable=False)
+    data = db.deferred(db.Column(db.LargeBinary, nullable=False))
+    size = db.Column(db.Integer, nullable=False)
+    message = db.relationship('ChatMessage', backref=db.backref('attachment', uselist=False, cascade='all, delete-orphan'))
+
+
+class ChatReaction(db.Model):
+    __tablename__ = 'chat_reactions'
+    message_id = db.Column(db.Integer, db.ForeignKey('chat_messages.id'), primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), primary_key=True)
+    emoji = db.Column(db.String(10), nullable=False)
+    message = db.relationship('ChatMessage', backref=db.backref('reactions', cascade='all, delete-orphan'))
+    user = db.relationship('User', backref=db.backref('chat_reactions', cascade='all, delete-orphan'))
+
+
+class ChatChange(db.Model):
+    __tablename__ = 'chat_changes'
+    id = db.Column(db.Integer, primary_key=True)
+    thread_id = db.Column(db.Integer, db.ForeignKey('chat_threads.id'), nullable=False, index=True)
+    message_id = db.Column(db.Integer, nullable=False)
+    thread = db.relationship('ChatThread', backref=db.backref('changes', cascade='all, delete-orphan'))
+
+
+class ChatContact(db.Model):
+    __tablename__ = 'chat_contacts'
+    owner_id = db.Column(db.Integer, db.ForeignKey('users.id'), primary_key=True)
+    peer_id = db.Column(db.Integer, db.ForeignKey('users.id'), primary_key=True)
+    owner = db.relationship('User', foreign_keys=[owner_id], backref=db.backref('chat_contacts_owned', cascade='all, delete-orphan'))
+    peer = db.relationship('User', foreign_keys=[peer_id], backref=db.backref('chat_contacts_received', cascade='all, delete-orphan'))
+
+
+class ChatBlock(db.Model):
+    __tablename__ = 'chat_blocks'
+    owner_id = db.Column(db.Integer, db.ForeignKey('users.id'), primary_key=True)
+    peer_id = db.Column(db.Integer, db.ForeignKey('users.id'), primary_key=True)
+    owner = db.relationship('User', foreign_keys=[owner_id], backref=db.backref('chat_blocks_owned', cascade='all, delete-orphan'))
+    peer = db.relationship('User', foreign_keys=[peer_id], backref=db.backref('chat_blocks_received', cascade='all, delete-orphan'))
+
+
+class ChatState(db.Model):
+    __tablename__ = 'chat_states'
+    thread_id = db.Column(db.Integer, db.ForeignKey('chat_threads.id'), primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), primary_key=True)
+    cleared_through = db.Column(db.Integer, nullable=False, default=0)
+    hidden = db.Column(db.Boolean, nullable=False, default=False)
+    thread = db.relationship('ChatThread', backref=db.backref('states', cascade='all, delete-orphan'))
+    user = db.relationship('User', backref=db.backref('chat_states', cascade='all, delete-orphan'))
+
+
+class UserAvatar(db.Model):
+    __tablename__ = 'user_avatars'
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), primary_key=True)
+    data = db.deferred(db.Column(db.LargeBinary, nullable=False))
+    version = db.Column(db.String(32), nullable=False)
+    user = db.relationship('User', backref=db.backref('avatar', uselist=False, cascade='all, delete-orphan'))
+
+
+class ChatGroup(db.Model):
+    __tablename__ = 'chat_groups'
+    thread_id = db.Column(db.Integer, db.ForeignKey('chat_threads.id'), primary_key=True)
+    name = db.Column(db.String(80), nullable=False)
+    thread = db.relationship('ChatThread', backref=db.backref('group', uselist=False, cascade='all, delete-orphan'))
+
+
+class ChatGroupMember(db.Model):
+    __tablename__ = 'chat_group_members'
+    thread_id = db.Column(db.Integer, db.ForeignKey('chat_threads.id'), primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), primary_key=True)
+    active = db.Column(db.Boolean, nullable=False, default=True)
+    owner = db.Column(db.Boolean, nullable=False, default=False)
+    joined_after = db.Column(db.Integer, nullable=False, default=0)
+    last_read = db.Column(db.Integer, nullable=False, default=0)
+    typing_at = db.Column(db.DateTime)
+    thread = db.relationship('ChatThread', backref=db.backref('group_members', cascade='all, delete-orphan'))
+    user = db.relationship('User', backref=db.backref('chat_group_memberships', cascade='all, delete-orphan'))
+
+# Group history survives account deletion, so a recycled SQLite user ID must never
+# claim old messages or change their displayed author.
+from sqlalchemy import event
+
+
+@event.listens_for(User, 'before_delete')
+def retire_chat_sender(mapper, connection, target):
+    connection.execute(ChatMessage.__table__.update().where(
+        ChatMessage.sender_id == target.id).values(sender_id=-ChatMessage.id))

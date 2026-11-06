@@ -24,6 +24,32 @@ def verify_credential(credential, client_id):
     return id_token.verify_oauth2_token(credential, Request(), audience=client_id, clock_skew_in_seconds=30)
 
 
+def registration_google_claims(credential):
+    """Validate Google's proof before creating a password account; never trust typed email."""
+    client_id = current_app.config.get('GOOGLE_CLIENT_ID')
+    if not client_id:
+        raise ValueError('Đăng ký Google chưa được cấu hình. Vui lòng liên hệ quản trị viên.')
+    if not credential or len(credential) > 16384:
+        raise ValueError('Vui lòng xác nhận tài khoản Google trước khi tạo tài khoản.')
+    try:
+        claims = verify_credential(credential, client_id)
+    except Exception:
+        raise ValueError('Không xác minh được Google hoặc xác nhận đã hết hạn. Vui lòng chọn lại tài khoản Google.') from None
+    nonce = session.get('google_nonce', '')
+    received = claims.get('nonce')
+    email = claims.get('email')
+    subject = claims.get('sub')
+    if (not nonce or not isinstance(received,str) or not secrets.compare_digest(nonce,received)
+        or not isinstance(subject,str) or not subject or len(subject)>255
+        or claims.get('email_verified') is not True or not isinstance(email,str)
+        or '@' not in email or len(email)>120):
+        raise ValueError('Xác nhận Google không hợp lệ. Vui lòng tải lại trang rồi chọn tài khoản Google.')
+    email = email.strip().lower()
+    if not email.endswith('@gmail.com') and not (isinstance(claims.get('hd'),str) and claims.get('hd')):
+        raise ValueError('Vui lòng chọn Gmail hoặc tài khoản Google Workspace để đăng ký.')
+    return {'email':email,'subject':subject}
+
+
 @google_auth.post('/auth/google')
 def sign_in():
     linking = request.form.get('intent') == 'link'
@@ -101,7 +127,7 @@ def sign_in():
         if Member.query.filter(func.lower(Member.email) == email).first():
             return fail('Email đã có trong danh bạ. Vui lòng nhờ quản trị viên cấp tài khoản rồi liên kết Google.')
         if not email.endswith('@gmail.com') and not claims.get('hd'):
-            return fail('Vui lòng dùng Gmail hoặc tài khoản Google Workspace, hoặc đăng ký bằng email và mật khẩu.')
+            return fail('Vui lòng dùng Gmail hoặc tài khoản Google Workspace đã được Google xác minh.')
         name = str(claims.get('name') or email.split('@')[0])[:100]
         member = Member(name=name, email=email, member_id='MEM' + secrets.token_hex(5).upper())
         user = User(email=email, password_hash='', role='reader', member=member)

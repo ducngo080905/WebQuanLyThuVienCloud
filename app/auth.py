@@ -6,7 +6,7 @@ from flask import Blueprint, abort, current_app, flash, g, redirect, render_temp
 from sqlalchemy import func
 from sqlalchemy.exc import IntegrityError
 from app import db
-from app.models import User, Member, Issue, Book, BorrowRequest, RegistrationBlock, DeletedAccountId, PasswordChangeRequired
+from app.models import User, Member, Issue, Book, BorrowRequest, RegistrationBlock, DeletedAccountId, PasswordChangeRequired, GoogleIdentity
 
 auth = Blueprint('auth', __name__)
 ROLES = {'admin': 'Quản trị viên', 'librarian': 'Thủ thư', 'reader': 'Độc giả'}
@@ -30,7 +30,7 @@ def install_auth(app):
         if g.user and not g.user.active:
             session.clear()
             g.user = None
-        if g.user and g.user.password_change_required and request.endpoint not in ('auth.profile','auth.logout','static','activity.heartbeat'):
+        if g.user and g.user.password_change_required and request.endpoint not in ('auth.profile','auth.logout','static','activity.heartbeat','messages.live','messages.phone','messages.read'):
             return redirect(url_for('auth.profile'))
         # An old login tab may be submitted after another tab has signed in.
         if g.user and request.endpoint == 'auth.login':
@@ -94,8 +94,8 @@ def valid_fields(name, email, password, phone=''):
             and 8 <= len(password) <= 128 and len(phone) <= 20)
 
 
-def create_account(name, email, password, phone='', role='reader', link_existing=False):
-    if registration_blocked(email):
+def create_account(name, email, password, phone='', role='reader', link_existing=False, google_subject=None):
+    if registration_blocked(email, google_subject):
         raise ValueError('Email này đã bị chặn đăng ký. Vui lòng liên hệ quản trị viên.')
     member = Member.query.filter(func.lower(Member.email) == email).first()
     if member and not link_existing:
@@ -109,6 +109,9 @@ def create_account(name, email, password, phone='', role='reader', link_existing
     user = User(email=email, role=role, member_id=member.id)
     user.set_password(password)
     db.session.add(user)
+    if google_subject:
+        db.session.flush()
+        db.session.add(GoogleIdentity(subject=google_subject,user_id=user.id))
     db.session.commit()
     return user
 
@@ -157,17 +160,28 @@ def setup():
 
 def account_form(mode):
     if request.method == 'POST':
+        proof = None
+        if mode == 'register':
+            from app.google_login import registration_google_claims
+            try:
+                proof = registration_google_claims(request.form.get('google_credential',''))
+            except ValueError as error:
+                flash(str(error),'danger')
+                return render_template('auth.html',mode=mode),400
         name = request.form.get('name', '').strip()
-        email = request.form.get('email', '').strip().lower()
+        submitted_email = request.form.get('email', '').strip().lower()
+        email = proof['email'] if proof else submitted_email
         password = request.form.get('password', '')
         phone = request.form.get('phone', '').strip()
-        if not valid_fields(name, email, password, phone):
+        if proof and submitted_email and submitted_email != proof['email']:
+            flash('Email đăng ký phải khớp tài khoản Google vừa xác nhận. Vui lòng chọn lại Google.','danger')
+        elif not valid_fields(name, email, password, phone):
             flash('Nhập họ tên, email hợp lệ, mật khẩu từ 8 đến 128 ký tự và điện thoại tối đa 20 ký tự.', 'danger')
         elif password != request.form.get('confirm_password'):
             flash('Mật khẩu xác nhận chưa khớp.', 'danger')
         else:
             try:
-                user = create_account(name, email, password, phone, 'admin' if mode == 'setup' else 'reader', mode == 'setup')
+                user = create_account(name, email, password, phone, 'admin' if mode == 'setup' else 'reader', mode == 'setup', google_subject=proof['subject'] if proof else None)
             except (ValueError, IntegrityError) as error:
                 db.session.rollback()
                 flash(str(error) if isinstance(error, ValueError) else 'Email đã được sử dụng.', 'danger')

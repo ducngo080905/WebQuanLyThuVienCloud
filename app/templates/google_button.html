@@ -1,23 +1,35 @@
 {% if google_client_id %}
 <div class="google-auth-box">
-  {% if google_link_mode %}<h3>Liên kết tài khoản Google</h3><p class="hint">Dùng Google có cùng email đăng nhập. Nhập mật khẩu hiện tại trước khi chọn tài khoản Google.</p>{% else %}<div class="auth-divider"><span>hoặc</span></div>{% endif %}
-  <form id="googleCredentialForm" method="post" action="{{ url_for('google_auth.sign_in') }}">
-    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-    <input type="hidden" name="credential" id="googleCredential">
-    {% if google_link_mode %}<input type="hidden" name="intent" value="link"><div class="form-group"><label for="linkPassword">Mật khẩu hiện tại</label><input id="linkPassword" name="link_password" type="password" required autocomplete="current-password"></div>{% endif %}
-  </form>
-  <div id="googleSignInButton" class="google-button"></div>
-  <p id="googleLoadStatus" class="hint" role="status">Đang tải nút đăng nhập Google…</p>
+  {% if google_link_mode %}<h3>Liên kết tài khoản Google</h3><p class="hint">Dùng Google có cùng email đăng nhập. Nhập mật khẩu hiện tại trước khi chọn tài khoản Google.</p>{% elif not google_registration_mode %}<div class="auth-divider"><span>hoặc</span></div>{% endif %}
+  {% if google_registration_mode %}<input type="hidden" id="registrationGoogleCredential" name="google_credential" form="registrationForm">{% else %}<form id="googleCredentialForm" method="post" action="{{ url_for('google_auth.sign_in') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><input type="hidden" name="credential" id="googleCredential">{% if google_link_mode %}<input type="hidden" name="intent" value="link"><div class="form-group"><label for="linkPassword">Mật khẩu hiện tại</label><input id="linkPassword" name="link_password" type="password" required autocomplete="current-password"></div>{% endif %}</form>{% endif %}
+  <div id="googleSignInButton" class="google-button"></div><p id="googleLoadStatus" class="hint" role="status">Đang tải nút xác nhận Google…</p>
 </div>
 <script>
 function initializeGoogleLogin(){
   const status=document.getElementById('googleLoadStatus');
   google.accounts.id.initialize({client_id:{{ google_client_id|tojson }},nonce:{{ google_nonce|tojson }},auto_select:false,
-    callback:function(response){const form=document.getElementById('googleCredentialForm');document.getElementById('googleCredential').value=response.credential;if(form.reportValidity()){status.textContent='Đang xác minh với Google…';form.requestSubmit();}}});
-  google.accounts.id.renderButton(document.getElementById('googleSignInButton'),{type:'standard',theme:'outline',size:'large',text:'continue_with',shape:'rectangular',width:280,locale:'vi'});
-  status.textContent='';
+    callback:function(response){
+      {% if google_registration_mode %}
+      const credential=document.getElementById('registrationGoogleCredential'),button=document.getElementById('registrationSubmit');
+      credential.value='';button.disabled=true;
+      try{
+        // Decoding is for form display only. The server verifies the signed proof.
+        const encoded=response.credential.split('.')[1].replace(/-/g,'+').replace(/_/g,'/');
+        const claims=JSON.parse(new TextDecoder().decode(Uint8Array.from(atob(encoded),c=>c.charCodeAt(0))));
+        if(typeof claims.email!=='string'||!claims.email)throw Error();
+        const name=document.getElementById('name');if(!name.value&&typeof claims.name==='string')name.value=claims.name.slice(0,100);
+        credential.value=response.credential;button.disabled=false;
+        status.textContent='Đã chọn '+claims.email+'. Hoàn tất thông tin bên dưới rồi bấm Tạo tài khoản.';
+      }catch(_){status.textContent='Chưa nhận được xác nhận Google hợp lệ. Vui lòng chọn lại tài khoản.';}
+      {% else %}
+      const form=document.getElementById('googleCredentialForm');document.getElementById('googleCredential').value=response.credential;
+      if(form.reportValidity()){status.textContent='Đang xác minh với Google…';form.requestSubmit();}
+      {% endif %}
+    }});
+  google.accounts.id.renderButton(document.getElementById('googleSignInButton'),{type:'standard',theme:'outline',size:'large',text:{{ ('signup_with' if google_registration_mode else 'continue_with')|tojson }},shape:'rectangular',width:280,locale:'vi'});
+  status.textContent={{ ('Chọn Google để xác nhận email và liên kết tài khoản ngay khi đăng ký.' if google_registration_mode else '')|tojson }};
 }
-function googleLoginUnavailable(){document.getElementById('googleLoadStatus').textContent='Không tải được Google. Kiểm tra kết nối hoặc dùng email và mật khẩu.';}
+function googleLoginUnavailable(){document.getElementById('googleLoadStatus').textContent={{ ('Không tải được Google. Kiểm tra kết nối hoặc tải lại trang để xác nhận trước khi đăng ký.' if google_registration_mode else 'Không tải được Google. Kiểm tra kết nối hoặc dùng email và mật khẩu.')|tojson }};}
 </script>
 <script src="https://accounts.google.com/gsi/client" async defer onload="initializeGoogleLogin()" onerror="googleLoginUnavailable()"></script>
-{% endif %}
+{% elif google_registration_mode %}<p class="alert alert-info">Google chưa được cấu hình. Vui lòng liên hệ quản trị viên để đăng ký.</p>{% endif %}

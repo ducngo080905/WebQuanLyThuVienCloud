@@ -13,16 +13,23 @@ def auth_app():
         db.drop_all()
 
 
-def register(client, email='reader@example.com', **extra):
-    return client.post('/register', data=dict(name='Reader', email=email, password='secret123',
-                       confirm_password='secret123', role='admin', **extra), follow_redirects=True)
+def legacy_account(client, email='reader@example.com', **extra):
+    """Seed a pre-Google password account to retain migration/legacy coverage."""
+    from app.auth import create_account
+    from sqlalchemy.exc import IntegrityError
+    try:
+        create_account(extra.get('name','Reader'),email.lower(),'secret123',extra.get('phone','0901234567'))
+    except (ValueError,IntegrityError):
+        db.session.rollback()
+    return client.post('/login',data={'email':email,'password':'secret123'},follow_redirects=True)
 
 
-def test_registration_login_logout_permissions(auth_app):
+
+def test_legacy_reader_login_logout_permissions(auth_app):
     c = auth_app.test_client()
     assert c.get('/members').status_code == 302
     assert c.get('/api/members').status_code == 401
-    assert register(c).status_code == 200
+    assert legacy_account(c).status_code == 200
     user = User.query.one()
     assert user.role == 'reader' and user.password_hash != 'secret123'
     assert c.get('/books').headers['Location'].endswith('/catalog')
@@ -42,7 +49,7 @@ def test_registration_login_logout_permissions(auth_app):
 
 def test_reader_only_sees_own_loans(auth_app):
     c = auth_app.test_client()
-    register(c)
+    legacy_account(c)
     user = User.query.one()
     other = Member(name='Other', email='other@example.com', member_id='OTHER')
     book1 = Book(title='Private Other Book', author='A', isbn='1', quantity=1, available=0)
@@ -78,7 +85,7 @@ def test_setup_admin_accounts_and_lock(auth_app):
 
 
 def test_duplicate_email_and_profile_password(auth_app):
-    c=auth_app.test_client();register(c)
+    c=auth_app.test_client();legacy_account(c)
     user=User.query.one()
     c.post('/profile',data={'name':'New Name','phone':'123','password':'newsecret',
                            'confirm_password':'newsecret','current_password':'wrong'})
@@ -86,11 +93,11 @@ def test_duplicate_email_and_profile_password(auth_app):
     c.post('/profile',data={'name':'New Name','phone':'123','password':'newsecret',
                            'confirm_password':'newsecret','current_password':'secret123'})
     assert user.check_password('newsecret') and user.member.name=='New Name'
-    c.post('/logout');register(c,email='READER@example.com')
+    c.post('/logout');legacy_account(c,email='READER@example.com')
     assert User.query.count()==1
 
 
-def test_csrf_enforced(auth_app):
+def test_csrf_enforced(auth_app,monkeypatch):
     auth_app.config['WTF_CSRF_ENABLED']=True
     c=auth_app.test_client()
     assert c.post('/register',data={}).status_code==303
@@ -98,23 +105,27 @@ def test_csrf_enforced(auth_app):
     c.get('/register')
     with c.session_transaction() as session:
         token=session['csrf_token']
-    response=c.post('/register',data={'name':'Reader','email':'csrf@example.com','password':'secret123',
+    with c.session_transaction() as sess: nonce=sess['google_nonce']
+    monkeypatch.setattr('app.google_login.verify_credential',lambda token,audience:dict(sub='csrf-google',email='csrf@gmail.com',email_verified=True,nonce=nonce))
+    response=c.post('/register',data={'name':'Reader','email':'csrf@gmail.com','google_credential':'verified-token','password':'secret123',
                                     'confirm_password':'secret123','csrf_token':token})
     assert response.status_code==302
     assert c.post('/logout',data={'csrf_token':'wrong'}).status_code==303
     assert c.get('/my-books').status_code == 200
 
 
-def test_stale_login_tab_after_registration(auth_app):
+def test_stale_login_tab_after_registration(auth_app,monkeypatch):
     auth_app.config['WTF_CSRF_ENABLED'] = True
     c = auth_app.test_client()
     c.get('/login')
     with c.session_transaction() as sess:
         old_token = sess['csrf_token']
-    response = c.post('/register', data={'name':'Reader','email':'tabs@example.com',
+        nonce = sess['google_nonce']
+    monkeypatch.setattr('app.google_login.verify_credential',lambda token,audience:dict(sub='tabs-google',email='tabs@gmail.com',email_verified=True,nonce=nonce))
+    response = c.post('/register', data={'name':'Reader','email':'tabs@gmail.com','google_credential':'verified-token',
                         'password':'secret123','confirm_password':'secret123','csrf_token':old_token})
     assert response.headers['Location'].endswith('/')
-    response = c.post('/login', data={'email':'tabs@example.com','password':'secret123','csrf_token':old_token})
+    response = c.post('/login', data={'email':'tabs@gmail.com','password':'secret123','csrf_token':old_token})
     assert response.status_code == 303 and response.headers['Location'].endswith('/')
     assert c.get('/admin').status_code == 403
     assert c.get('/').status_code == 200
@@ -136,7 +147,7 @@ def test_admin_landing_and_guest_catalog(auth_app):
 
 def test_reader_request_approval_stock_and_return(auth_app):
     from app.models import BorrowRequest
-    c=auth_app.test_client();register(c)
+    c=auth_app.test_client();legacy_account(c)
     reader=User.query.one()
     book=Book(title='Request Book',author='Author',isbn='REQ-1',quantity=1,available=1)
     staff_member=Member(name='Staff',email='staff@example.com',member_id='STAFF')
@@ -163,13 +174,13 @@ def test_reader_request_approval_stock_and_return(auth_app):
 
 def test_request_ownership_cancel_reject_and_unavailable(auth_app):
     from app.models import BorrowRequest
-    c=auth_app.test_client();register(c)
+    c=auth_app.test_client();legacy_account(c)
     owner=User.query.one()
     book=Book(title='Only Copy',author='Author',isbn='REQ-2',quantity=1,available=1)
     db.session.add(book);db.session.commit()
     c.post(f'/borrow/request/{book.id}')
     item=BorrowRequest.query.one()
-    other=auth_app.test_client();register(other,email='other@example.com')
+    other=auth_app.test_client();legacy_account(other,email='other@example.com')
     assert b'Only Copy' not in other.get('/my-books').data
     assert other.post(f'/borrow/requests/{item.id}/cancel').status_code==403
     c.post(f'/borrow/requests/{item.id}/cancel')
@@ -188,7 +199,7 @@ def test_request_ownership_cancel_reject_and_unavailable(auth_app):
 
 def test_request_csrf_and_invalid_due_date(auth_app):
     from app.models import BorrowRequest
-    c=auth_app.test_client();register(c)
+    c=auth_app.test_client();legacy_account(c)
     user=User.query.one()
     book=Book(title='Safe Book',author='Author',isbn='REQ-3',quantity=1,available=1)
     db.session.add(book);db.session.commit()
@@ -233,7 +244,7 @@ def test_google_new_reader_and_returning_login(auth_app,monkeypatch):
 
 def test_google_existing_email_requires_explicit_link(auth_app,monkeypatch):
     from app.models import GoogleIdentity
-    c=auth_app.test_client();register(c,email='reader@gmail.com')
+    c=auth_app.test_client();legacy_account(c,email='reader@gmail.com')
     user=User.query.one();c.post('/logout')
     google_submit(c,monkeypatch,email=user.email)
     assert GoogleIdentity.query.count()==0 and c.get('/my-books').status_code==302
@@ -279,7 +290,7 @@ def test_google_verifier_passes_configured_audience(auth_app,monkeypatch):
 
 def test_live_presence_admin_only_and_no_journal(auth_app):
     from app.models import LivePresence, ActivityEvent
-    reader=auth_app.test_client();register(reader)
+    reader=auth_app.test_client();legacy_account(reader)
     user=User.query.one()
     assert reader.get('/admin/accounts/presence').status_code==403
     tab='a'*32
@@ -312,7 +323,7 @@ def test_live_presence_admin_only_and_no_journal(auth_app):
 def test_presence_timeout_csrf_and_multiple_sessions(auth_app):
     from app.models import LivePresence
     from datetime import timedelta
-    first=auth_app.test_client();register(first)
+    first=auth_app.test_client();legacy_account(first)
     user=User.query.one()
     first.post('/activity/heartbeat',data={'tab_id':'1'*32,'visible':'1'})
     second=auth_app.test_client();second.post('/login',data={'email':user.email,'password':'secret123'})
@@ -338,7 +349,7 @@ def setup_deletion_admin(app):
 def test_delete_account_allows_fresh_registration_preserves_loans(auth_app):
     from app.models import BorrowRequest
     admin=setup_deletion_admin(auth_app)
-    reader=auth_app.test_client();register(reader,email='reader@gmail.com')
+    reader=auth_app.test_client();legacy_account(reader,email='reader@gmail.com')
     user=User.query.filter_by(email='reader@gmail.com').one();old_id=user.id;member_id=user.member_id
     book=Book(title='Old loan',author='A',isbn='DELETE-1',quantity=1,available=0)
     db.session.add(book);db.session.flush()
@@ -348,7 +359,7 @@ def test_delete_account_allows_fresh_registration_preserves_loans(auth_app):
     assert admin.post(f'/accounts/{old_id}/delete',data={'mode':'delete'}).status_code==302
     assert db.session.get(User,old_id) is None and Issue.query.count()==1 and book.available==0
     assert BorrowRequest.query.one().status=='cancelled'
-    new=auth_app.test_client();register(new,email='reader@gmail.com')
+    new=auth_app.test_client();legacy_account(new,email='reader@gmail.com')
     new_user=User.query.filter_by(email='reader@gmail.com').one()
     assert new_user.member_id!=member_id
     assert b'Old loan' not in new.get('/my-books').data
@@ -364,12 +375,12 @@ def test_delete_block_google_and_password_and_unblock(auth_app,monkeypatch):
     block=RegistrationBlock.query.one()
     assert block.email=='reader@gmail.com' and block.google_subject=='blocked-sub'
     assert GoogleIdentity.query.count()==0
-    retry=auth_app.test_client();register(retry,email='reader+alias@gmail.com')
+    retry=auth_app.test_client();legacy_account(retry,email='reader+alias@gmail.com')
     assert User.query.count()==1
     google_submit(retry,monkeypatch,email='changed@gmail.com',subject='blocked-sub')
     assert User.query.count()==1
     admin.post(f'/accounts/registration-blocks/{block.id}/remove')
-    register(retry,email='r.eader@gmail.com')
+    legacy_account(retry,email='r.eader@gmail.com')
     assert User.query.count()==2
 
 
@@ -379,7 +390,7 @@ def test_admin_delete_protection_and_transfer(auth_app):
     response=admin.post(f'/accounts/{source.id}/delete',data={'mode':'block'},follow_redirects=True)
     assert 'chuyển tài khoản khác làm quản trị'.encode() in response.data
     assert db.session.get(User,source.id) is not None
-    reader=auth_app.test_client();register(reader,email='newadmin@gmail.com')
+    reader=auth_app.test_client();legacy_account(reader,email='newadmin@gmail.com')
     target=User.query.filter_by(email='newadmin@gmail.com').one()
     admin.post(f'/accounts/{source.id}/transfer-admin',data={'target_id':target.id})
     assert source.role=='librarian' and target.role=='admin'
@@ -389,7 +400,7 @@ def test_admin_delete_protection_and_transfer(auth_app):
 
 def test_accounts_groups_and_full_editor(auth_app):
     admin=setup_deletion_admin(auth_app)
-    reader=auth_app.test_client();register(reader,email='editable@example.com')
+    reader=auth_app.test_client();legacy_account(reader,email='editable@example.com')
     user=User.query.filter_by(email='editable@example.com').one()
     original_member_id=user.member_id
     assert reader.get(f'/accounts/{user.id}/edit').status_code==403
@@ -416,7 +427,7 @@ def test_account_edit_self_guard_duplicate_and_google_unlink(auth_app):
           'joined_at':owner.member.joined_at.strftime('%Y-%m-%d'),'role':'reader','active':'0'}
     admin.post(f'/accounts/{owner.id}/edit',data=base)
     assert owner.active and owner.role=='admin'
-    reader=auth_app.test_client();register(reader,email='linked@example.com')
+    reader=auth_app.test_client();legacy_account(reader,email='linked@example.com')
     user=User.query.filter_by(email='linked@example.com').one()
     db.session.add(GoogleIdentity(user_id=user.id,subject='edit-linked-sub'));db.session.commit()
     data={'name':'Reader','email':'newlinked@example.com','phone':'','member_code':user.member.member_id,

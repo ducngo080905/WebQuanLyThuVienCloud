@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block title %}Soạn thông báo – Quản trị{% endblock %}
+{% block page_styles %}<link rel="stylesheet" href="{{ url_for('static',filename='announcements.css') }}?v=1">{% endblock %}
+{% block content %}
+<div class="notice-page">
+  <div class="page-header"><div class="eyebrow">Kết nối người dùng</div><h2>Thông báo người dùng</h2><p>Soạn, xem trước và theo dõi thông báo đã gửi tại một nơi.</p></div>
+  <div class="notice-summary">
+    <div><span class="material-symbols-outlined">group</span><div><strong>{{ users|length }}</strong><span>Tài khoản có thể nhận</span></div></div>
+    <div><span class="material-symbols-outlined">outgoing_mail</span><div><strong>{{ items|length }}</strong><span>Thông báo gần nhất</span></div></div>
+    <div class="notice-summary-tip"><span class="material-symbols-outlined">info</span><p>Người đang mở web nhận sau khoảng 5 giây. Người ngoại tuyến nhận khi quay lại.</p></div>
+  </div>
+  <div class="notice-workspace">
+    <section class="card notice-compose">
+      <div class="notice-section-heading"><span class="notice-step">1</span><div><h3>Soạn nội dung</h3><p>Nhập thông tin ngắn gọn, rõ ràng cho người nhận.</p></div></div>
+      <form method="post" id="noticeForm" class="notice-form">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <div class="form-group"><div class="notice-field-label"><label for="messageTitle">Tiêu đề <span>*</span></label><small id="titleCount">0 / 150</small></div><input id="messageTitle" name="title" maxlength="150" required placeholder="Ví dụ: Thư viện thay đổi giờ mở cửa" value="{{ request.form.get('title','') }}"></div>
+        <div class="form-group"><div class="notice-field-label"><label for="messageBody">Nội dung <span>*</span></label><small id="bodyCount">0 / 5.000</small></div><textarea id="messageBody" name="body" rows="7" maxlength="5000" required placeholder="Nhập nội dung thông báo, thời gian và hướng dẫn cần thiết…">{{ request.form.get('body','') }}</textarea></div>
+        <div class="notice-recipient-section">
+          <div class="notice-section-heading"><span class="notice-step">2</span><div><h3>Chọn người nhận</h3><p>Chỉ gửi đến tài khoản được phép đăng nhập; quản trị viên không nhận.</p></div></div>
+          <div class="form-grid"><div class="form-group"><label for="audience">Nhóm nhận</label><select id="audience" name="audience">{% for value,label in [('all','Tất cả người dùng'),('reader','Độc giả'),('librarian','Thủ thư'),('one','Một tài khoản cụ thể')] %}<option value="{{ value }}" {{ 'selected' if request.form.get('audience','all') == value else '' }}>{{ label }}</option>{% endfor %}</select></div>
+          <div class="form-group" id="targetAccount" hidden><label for="targetId">Tài khoản nhận</label><select id="targetId" name="target_id"><option value="">Chọn tài khoản…</option>{% for user in users %}<option value="{{ user.id }}" data-role="{{ user.role }}" {{ 'selected' if request.form.get('target_id') == user.id|string else '' }}>{{ user.member.name }} · {{ user.email }}</option>{% endfor %}</select></div></div>
+          <p class="notice-recipient-count" id="recipientCount" role="status"></p>
+        </div>
+        <div class="notice-send-row"><p>Thông báo được gửi ngay khi bấm nút.</p><button class="btn btn-primary" id="sendNotice"><span class="material-symbols-outlined">send</span>Gửi thông báo</button></div>
+      </form>
+    </section>
+    <aside class="card notice-preview"><div class="notice-section-heading"><span class="material-symbols-outlined">visibility</span><div><h3>Xem trước</h3><p>Nội dung hiển thị với người dùng</p></div></div><div class="notice-preview-message"><div class="notice-preview-brand"><span class="material-symbols-outlined">local_library</span>Thư Viện <small>Vừa xong</small></div><h4 id="previewTitle">Tiêu đề thông báo</h4><p id="previewBody">Nội dung bạn nhập sẽ xuất hiện tại đây.</p></div><p class="notice-preview-help">Thông báo nhỏ xuất hiện ở góc màn hình rồi tự ẩn. Người dùng có thể đọc lại trong “Tin từ quản trị”.</p></aside>
+  </div>
+  <section class="card notice-history"><div class="notice-history-header"><div><h3>Lịch sử gửi</h3><p>Tối đa 50 thông báo gần nhất. Chọn một hàng để xem nội dung.</p></div><label class="notice-history-search"><span class="material-symbols-outlined">search</span><input id="noticeSearch" type="search" placeholder="Tìm trong lịch sử…" aria-label="Tìm thông báo đã gửi"></label></div>
+    <div class="notice-history-list">{% for item in items %}{% set read_count = item.receipts|selectattr('read_at')|list|length %}<details class="notice-history-item"><summary><span class="material-symbols-outlined notice-history-chevron">chevron_right</span><div class="notice-history-main"><strong>{{ item.title }}</strong><div class="notice-history-meta"><span>{{ {'all':'Tất cả người dùng','reader':'Độc giả','librarian':'Thủ thư','one':'Tài khoản cụ thể'}.get(item.audience,'Người dùng') }}</span><span>{{ item.receipts|length }} người nhận</span><time datetime="{{ item.created_at.isoformat() }}Z">{{ item.created_at.strftime('%d/%m/%Y · %H:%M') }} UTC</time></div></div><span class="notice-read-badge">{{ read_count }} / {{ item.receipts|length }} đã đọc</span><span class="notice-history-view">Chi tiết</span></summary><div class="notice-history-body"><p>{{ item.body }}</p><div class="notice-read-progress"><progress value="{{ read_count }}" max="{{ item.receipts|length or 1 }}" aria-label="Số người đã đọc"></progress><span>{{ read_count }} đã đọc · {{ item.receipts|length - read_count }} chưa đọc</span></div></div></details>{% else %}<div class="notice-empty"><span class="material-symbols-outlined">mark_email_unread</span><h4>Chưa có thông báo đã gửi</h4><p>Thông báo đầu tiên sẽ xuất hiện tại đây sau khi gửi.</p></div>{% endfor %}</div><p class="notice-empty" id="noticeSearchEmpty" hidden>Không tìm thấy thông báo phù hợp.</p>
+  </section>
+</div>
+<script src="{{ url_for('static',filename='announcements.js') }}?v=1" defer></script>
+{% endblock %}

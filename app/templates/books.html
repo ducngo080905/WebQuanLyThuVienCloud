@@ -36,9 +36,9 @@
             {% endif %}
           </td>
           <td>
-            {% if is_staff %}<a class="btn btn-sm" href="{{ url_for('features.edit_book',book_id=book.id) }}">Chỉnh sửa</a><button class="btn btn-sm" type="button" onclick="openModal('bookCover{{ book.id }}')">Ảnh bìa</button><form class="book-delete-form" method="POST" action="/books/delete/{{ book.id }}" onsubmit="return confirm('Xóa sách này và toàn bộ phiếu mượn liên quan?')"><input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+            {% if is_staff %}<div class="table-actions"><a class="btn btn-sm" href="{{ url_for('features.edit_book',book_id=book.id) }}">Chỉnh sửa</a><button class="btn btn-sm" type="button" onclick="openModal('bookCover{{ book.id }}')">Ảnh bìa</button><form class="book-delete-form" method="POST" action="/books/delete/{{ book.id }}" onsubmit="return confirm('Xóa sách này và toàn bộ phiếu mượn liên quan?')"><input type="hidden" name="csrf_token" value="{{ csrf_token }}">
               <button class="btn btn-danger btn-sm" type="submit">Xóa</button>
-            </form>{% endif %}
+            </form></div>{% endif %}
           </td>
         </tr>
         {% else %}

@@ -17,7 +17,7 @@ def feature_app():
 
 
 def account(app,email,role='reader'):
-    member=Member(name=role,email=email,member_id=email)
+    member=Member(name=role,email=email,member_id=email,phone='0901234567')
     user=User(member=member,email=email,role=role);user.set_password('password123')
     db.session.add(user);db.session.commit()
     client=app.test_client();client.post('/login',data={'email':email,'password':'password123'})
