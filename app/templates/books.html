@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+{% block title %}Sách – Thư viện{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div class="eyebrow">Kho dữ liệu › Mục lục sách</div>
+  <h2>Sách</h2>
+  <p>Quản lý danh mục sách của thư viện</p>
+{% if is_staff %}<button class="btn btn-primary" onclick="openModal('addBookModal')">＋ Thêm sách</button>{% endif %}
+</div>
+
+<div class="stat-grid"><div class="stat-card"><div class="label">Tổng đầu sách</div><div class="value">{{ books|length }}</div><span class="icon-bg material-symbols-outlined">menu_book</span><div class="hint">Dữ liệu hiện tại của thư viện</div></div><div class="stat-card"><div class="label">Tổng bản lưu</div><div class="value">{{ books|sum(attribute='quantity') }}</div><span class="icon-bg material-symbols-outlined">inventory_2</span><div class="hint">Dữ liệu hiện tại của thư viện</div></div><div class="stat-card"><div class="label">Sẵn sàng</div><div class="value">{{ books|sum(attribute='available') }}</div><span class="icon-bg material-symbols-outlined">check_circle</span><div class="hint">Dữ liệu hiện tại của thư viện</div></div><div class="stat-card"><div class="label">Đang mượn</div><div class="value">{{ (books|sum(attribute='quantity')) - (books|sum(attribute='available')) }}</div><span class="icon-bg material-symbols-outlined">auto_stories</span><div class="hint">Dữ liệu hiện tại của thư viện</div></div></div>
+<div class="card">
+  <div class="section-header">
+    <span style="color:var(--muted);font-size:.85rem">{{ books|length }} đầu sách trong danh mục</span>
+
+  </div>
+<div class="toolbar"><label class="search-box"><span class="material-symbols-outlined">search</span><input id="tableSearch" type="search" aria-label="Tìm kiếm trong danh sách" placeholder="Tìm kiếm theo tên, mã hoặc thông tin..."></label><select id="tableFilter" aria-label="Thể loại"><option value="">Tất cả thể loại</option>{% for genre in books|map(attribute='genre')|unique %}{% if genre %}<option value="{{ genre }}">{{ genre }}</option>{% endif %}{% endfor %}</select><button class="btn" type="button" onclick="window.location.reload()" aria-label="Làm mới"><span class="material-symbols-outlined">refresh</span></button></div>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th>Tên sách</th><th>Tác giả</th><th>ISBN</th><th>Thể loại</th><th>Số lượng</th><th>Còn lại</th><th>Thao tác</th></tr>
+      </thead>
+      <tbody>
+        {% for book in books %}
+        <tr data-row data-filter="{{ book.genre or '' }}">
+          <td><div class="book-cell">{% if book.cover %}<img class="book-cover book-cover-image" src="{{ url_for('main.book_cover',book_id=book.id,v=book.cover.version) }}" alt="Bìa {{ book.title }}" loading="lazy">{% else %}<span class="book-cover material-symbols-outlined">menu_book</span>{% endif %}<div><a href="{{ url_for('features.detail',book_id=book.id) }}"><strong>{{ book.title }}</strong></a><small>Danh mục thư viện · #{{ book.id }}</small></div></div></td>
+          <td>{{ book.author }}</td>
+          <td style="font-family:monospace;font-size:.8rem;color:var(--muted)">{{ book.isbn }}</td>
+          <td><span class="badge badge-info">{{ book.genre or '–' }}</span></td>
+          <td>{{ book.quantity }}</td>
+          <td>
+            {% if book.available > 0 %}
+              <span class="badge badge-success">{{ book.available }}</span>
+            {% else %}
+              <span class="badge badge-danger">0</span>
+            {% endif %}
+          </td>
+          <td>
+            {% if is_staff %}<a class="btn btn-sm" href="{{ url_for('features.edit_book',book_id=book.id) }}">Chỉnh sửa</a><button class="btn btn-sm" type="button" onclick="openModal('bookCover{{ book.id }}')">Ảnh bìa</button><form class="book-delete-form" method="POST" action="/books/delete/{{ book.id }}" onsubmit="return confirm('Xóa sách này và toàn bộ phiếu mượn liên quan?')"><input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+              <button class="btn btn-danger btn-sm" type="submit">Xóa</button>
+            </form>{% endif %}
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="7" style="text-align:center;color:var(--muted);padding:40px">Chưa có sách nào trong danh mục</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    <div id="filterEmpty" class="empty-filter" hidden>Không tìm thấy dữ liệu phù hợp.</div>
+  </div>
+  <div class="table-footer"><span id="visibleCount">Hiển thị toàn bộ dữ liệu</span><span>Thư viện · Cơ sở chính</span></div>
+</div>
+
+<!-- Form thêm sách -->
+{% if is_staff %}<div class="modal-overlay" id="addBookModal">
+  <div class="modal">
+    <h3>Thêm sách mới</h3>
+    <form method="POST" action="/books/add" enctype="multipart/form-data"><input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <div class="form-grid">
+        <div class="form-group" style="grid-column:span 2">
+          <label>Tên sách *</label>
+          <input type="text" name="title" required placeholder="Ví dụ: Lập trình Python"/>
+        </div>
+        <div class="form-group">
+          <label>Tác giả *</label>
+          <input type="text" name="author" required placeholder="Ví dụ: Nguyễn Văn A"/>
+        </div>
+        <div class="form-group">
+          <label>ISBN *</label>
+          <input type="text" name="isbn" required placeholder="Ví dụ: 978-0132350884"/>
+        </div>
+        <div class="form-group">
+          <label>Thể loại</label>
+          <input type="text" name="genre" placeholder="Ví dụ: Công nghệ"/>
+        </div>
+        <div class="form-group">
+          <label>Số lượng</label>
+          <input type="number" name="quantity" value="1" min="1"/>
+        </div>
+        <div class="form-group" style="grid-column:span 2"><label for="newCover">Ảnh bìa (tùy chọn)</label><input id="newCover" type="file" name="cover" accept="image/jpeg,image/png,image/webp" data-cover-preview="newCoverPreview"><span class="hint">JPG, PNG hoặc WebP · tối đa 5 MB</span><img id="newCoverPreview" class="cover-preview" alt="Xem trước ảnh bìa" hidden></div>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn" style="background:var(--surface2)" onclick="closeModal('addBookModal')">Hủy</button>
+        <button type="submit" class="btn btn-primary">Thêm sách</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+{% for book in books %}<div class="modal-overlay" id="bookCover{{ book.id }}"><div class="modal"><h3>Ảnh bìa sách</h3><p class="cover-title">{{ book.title }}</p><form method="post" enctype="multipart/form-data" action="{{ url_for('main.update_book_cover',book_id=book.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><div class="form-group"><label for="coverFile{{ book.id }}">Chọn ảnh bìa mới</label><input id="coverFile{{ book.id }}" type="file" name="cover" accept="image/jpeg,image/png,image/webp" data-cover-preview="coverPreview{{ book.id }}"><span class="hint">JPG, PNG hoặc WebP · tối đa 5 MB</span><img id="coverPreview{{ book.id }}" class="cover-preview" alt="Xem trước bìa {{ book.title }}" {% if book.cover %}src="{{ url_for('main.book_cover',book_id=book.id,v=book.cover.version) }}"{% else %}hidden{% endif %}></div><div class="modal-actions"><button class="btn" type="button" onclick="closeModal('bookCover{{ book.id }}')">Hủy</button>{% if book.cover %}<button class="btn btn-danger" type="submit" name="remove_cover" value="1">Gỡ ảnh</button>{% endif %}<button class="btn btn-primary" type="submit">Lưu ảnh bìa</button></div></form></div></div>{% endfor %}
+<script src="{{ url_for('static',filename='covers.js') }}"></script>
+{% endif %}{% endblock %}
+

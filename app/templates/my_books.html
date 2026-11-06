@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block title %}Sách của tôi – Thư Viện{% endblock %}
+{% block content %}
+<div class="my-books-page">
+  <header class="page-header">
+    <div class="eyebrow">Không gian độc giả</div>
+    <h2>Sách của tôi</h2>
+    <p>Theo dõi hạn trả, yêu cầu mượn và những cuốn sách bạn đã đọc.</p>
+    <a class="btn btn-primary" href="/catalog"><span class="material-symbols-outlined">add</span> Tìm sách để mượn</a>
+  </header>
+
+  <div class="stat-grid my-books-stats">
+    {% for label,value,icon,tone in [('Đang mượn',active_loans|length,'auto_stories','primary'),('Quá hạn',overdue_count,'event_busy','danger'),('Chờ duyệt',pending_requests|length,'hourglass_top','pending'),('Đã trả',returned_loans|length,'task_alt','success')] %}
+    <div class="stat-card stat-{{ tone }}">
+      <div class="label">{{ label }}</div><div class="value">{{ value }}</div>
+      <span class="icon-bg material-symbols-outlined">{{ icon }}</span>
+    </div>
+    {% endfor %}
+  </div>
+
+  {% if overdue_count %}
+  <div class="loan-reminder" role="status"><span class="material-symbols-outlined">event_busy</span><div><strong>Bạn có {{ overdue_count }} cuốn sách quá hạn</strong><p>Vui lòng mang sách đến quầy thủ thư để trả sớm.</p></div><a href="#active-loans">Xem sách quá hạn ↓</a></div>
+  {% endif %}
+
+  <section class="card" id="active-loans" aria-labelledby="active-title">
+    <div class="section-header"><div><h3 id="active-title">Sách đang mượn</h3><p class="hint">Sắp xếp theo hạn trả gần nhất. Trả sách tại quầy thủ thư.</p></div><span class="badge badge-info">{{ active_loans|length }} cuốn</span></div>
+    {% if active_loans %}
+    <div class="table-wrap"><table><thead><tr><th>Sách</th><th>Ngày mượn</th><th>Hạn trả</th><th>Thời gian còn lại</th><th>Gia hạn / phí trễ hạn</th></tr></thead><tbody>
+      {% for loan in active_loans %}{% set days = (loan.due_date.date() - today).days %}
+      <tr class="{{ 'loan-overdue' if days < 0 else '' }}">
+        <td><div class="book-cell">{% if loan.book.cover %}<img class="book-cover book-cover-image" src="{{ url_for('main.book_cover',book_id=loan.book.id,v=loan.book.cover.version) }}" alt="Bìa {{ loan.book.title }}" loading="lazy">{% else %}<span class="book-cover material-symbols-outlined">menu_book</span>{% endif %}<div><a href="{{ url_for('features.detail',book_id=loan.book.id) }}"><strong>{{ loan.book.title }}</strong></a><small>{{ loan.book.author }}</small></div></div></td>
+        <td>{{ loan.issue_date.strftime('%d/%m/%Y') }}</td><td><strong>{{ loan.due_date.strftime('%d/%m/%Y') }}</strong></td>
+        <td><span class="badge badge-{{ 'danger' if days < 0 else ('warn' if days <= 3 else 'info') }}">{% if days < 0 %}Quá hạn {{ -days }} ngày{% elif days == 0 %}Đến hạn hôm nay{% else %}Còn {{ days }} ngày{% endif %}</span></td><td>{% if days >= 0 %}{% if loan.renewals|selectattr('status','equalto','pending')|list %}<span class="badge badge-warn">Đang chờ duyệt gia hạn</span>{% elif loan.renewals|selectattr('status','equalto','approved')|list|length < 2 %}<form method="post" action="{{ url_for('features.request_renewal',issue_id=loan.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><button class="btn btn-sm">Xin gia hạn +7 ngày</button></form>{% else %}<span class="hint">Đã dùng 2 lần gia hạn</span>{% endif %}{% else %}<span class="hint">Phí tạm tính: {{ '{:,}'.format(fine_amount(loan)) }} đ</span>{% endif %}</td>
+      </tr>{% endfor %}
+    </tbody></table></div>
+    {% else %}<div class="my-books-empty"><span class="material-symbols-outlined">auto_stories</span><strong>Bạn chưa có sách đang mượn</strong><p>Khám phá kho sách và gửi yêu cầu cho cuốn sách bạn yêu thích.</p><a class="btn" href="/catalog">Khám phá sách</a></div>{% endif %}
+  </section>
+
+  <section class="card" aria-labelledby="pending-title">
+    <div class="section-header"><div><h3 id="pending-title">Yêu cầu đang chờ duyệt</h3><p class="hint">Yêu cầu chưa giữ chỗ trong kho. Sau khi được duyệt, bạn đến quầy nhận sách.</p></div><span class="badge badge-warn">{{ pending_requests|length }} yêu cầu</span></div>
+    {% if pending_requests %}<div class="request-list">{% for item in pending_requests %}<article class="pending-request"><div class="book-cell"><span class="book-cover material-symbols-outlined">menu_book</span><div><strong>{{ item.book.title }}</strong><small>Đã gửi {{ item.created_at.strftime('%d/%m/%Y') }}</small></div></div><div class="pending-actions"><span class="badge badge-warn">Chờ duyệt</span><form method="post" action="{{ url_for('auth.cancel_request',request_id=item.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><button class="btn btn-sm" type="submit">Hủy yêu cầu</button></form></div></article>{% endfor %}</div>
+    {% else %}<p class="section-empty">Không có yêu cầu đang chờ duyệt.</p>{% endif %}
+  </section>
+
+  <details class="card history-section">
+    <summary><span><strong>Lịch sử đã trả</strong><span class="hint">{{ returned_loans|length }} lượt mượn đã hoàn tất</span></span><span class="material-symbols-outlined">expand_more</span></summary>
+    <div class="history-content">
+      <div class="toolbar"><label class="search-box"><span class="material-symbols-outlined">search</span><input id="tableSearch" type="search" aria-label="Tìm trong lịch sử đã trả" placeholder="Tìm sách đã trả..."></label></div>
+      <div class="table-wrap"><table><thead><tr><th>Sách</th><th>Ngày mượn</th><th>Hạn trả</th><th>Ngày trả</th><th>Trạng thái</th></tr></thead><tbody>{% for loan in returned_loans %}<tr data-row><td><a href="{{ url_for('features.detail',book_id=loan.book.id) }}"><strong>{{ loan.book.title }}</strong></a></td><td>{{ loan.issue_date.strftime('%d/%m/%Y') }}</td><td>{{ loan.due_date.strftime('%d/%m/%Y') }}</td><td>{{ loan.return_date.strftime('%d/%m/%Y') if loan.return_date else '–' }}</td><td><span class="badge badge-success">Đã trả</span></td></tr>{% else %}<tr><td colspan="5" class="empty-filter">Chưa có lịch sử trả sách.</td></tr>{% endfor %}</tbody></table><div id="filterEmpty" class="empty-filter" hidden>Không tìm thấy sách phù hợp.</div></div><div class="table-footer"><span id="visibleCount"></span><span>Thông tin chỉ dành cho bạn</span></div>
+    </div>
+  </details>
+
+  <details class="card history-section">
+    <summary><span><strong>Yêu cầu đã xử lý</strong><span class="hint">{{ processed_requests|length }} yêu cầu đã duyệt, từ chối hoặc hủy</span></span><span class="material-symbols-outlined">expand_more</span></summary>
+    <div class="history-content"><div class="table-wrap"><table><thead><tr><th>Sách</th><th>Ngày gửi</th><th>Kết quả</th></tr></thead><tbody>{% for item in processed_requests %}<tr><td>{{ item.book.title }}</td><td>{{ item.created_at.strftime('%d/%m/%Y') }}</td><td><span class="badge badge-{{ 'success' if item.status == 'approved' else 'info' }}">{{ {'approved':'Đã duyệt','rejected':'Từ chối','cancelled':'Đã hủy'}[item.status] }}</span></td></tr>{% else %}<tr><td colspan="3" class="empty-filter">Chưa có yêu cầu đã xử lý.</td></tr>{% endfor %}</tbody></table></div></div>
+  </details>
+</div>
+{% endblock %}

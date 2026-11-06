@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+{% block title %}Tổng quan – Quản trị thư viện{% endblock %}
+{% block content %}
+<div class="page-header dashboard-banner">
+  <div class="eyebrow">Bảng điều khiển trung tâm</div>
+  <h2>Tổng quan</h2>
+  <p>Chào mừng đến với Hệ thống quản lý thư viện</p>
+</div>
+
+<div class="stat-grid">
+  <div class="stat-card">
+    <div class="label">Tổng số đầu sách</div>
+    <div class="value">{{ total_books }}</div>
+    <div class="icon-bg material-symbols-outlined">menu_book</div>
+  </div>
+  <div class="stat-card" id="account-stat">
+    <div class="label">Tổng tài khoản</div>
+    <div class="value">{{ total_accounts }}</div>
+    <div class="hint">{{ admin_accounts }} quản trị · {{ total_accounts - admin_accounts }} người dùng</div>
+    <div class="icon-bg material-symbols-outlined">group</div>
+  </div>
+  <div class="stat-card">
+    <div class="label">Đang mượn</div>
+    <div class="value">{{ active_issues }}</div>
+    <div class="icon-bg material-symbols-outlined">swap_horiz</div>
+  </div>
+  <div class="stat-card" style="--accent:#c0392b">
+    <div class="label">Quá hạn</div>
+    <div class="value" style="color:#e74c3c">{{ overdue }}</div>
+    <div class="icon-bg material-symbols-outlined">warning</div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="section-header">
+    <h3 style="font-family:'Playfair Display',serif;font-size:1.1rem;color:var(--accent)">Giao dịch gần đây</h3>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Sách</th><th>Thành viên</th><th>Ngày mượn</th><th>Hạn trả</th><th>Trạng thái</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for issue in recent_issues %}
+        <tr>
+          <td>{{ issue.book.title }}</td>
+          <td>{{ issue.member.name }}</td>
+          <td>{{ issue.issue_date.strftime('%d/%m/%Y') }}</td>
+          <td>{{ issue.due_date.strftime('%d/%m/%Y') }}</td>
+          <td>
+            {% if issue.status == 'returned' %}
+              <span class="badge badge-success">Đã trả</span>
+            {% elif issue.due_date.date() < now.date() %}
+              <span class="badge badge-danger">Quá hạn</span>
+            {% else %}
+              <span class="badge badge-info">Đang mượn</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="5" style="text-align:center;color:var(--muted);padding:32px">Chưa có giao dịch gần đây</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+<div class="analytics-grid"><div class="card"><div class="section-header"><h3>Phân bố lưu thông</h3><span class="material-symbols-outlined">donut_large</span></div><div class="donut-wrap"><div class="donut" style="background:conic-gradient(#1e40af {{ ui_stats.active_percent }}%, #85dcb8 0)"><div>{{ ui_stats.total }}<small>TỔNG GIAO DỊCH</small></div></div><div class="legend"><p>● Đang mượn <b>{{ ui_stats.active }}</b></p><p>● Đã hoàn tất <b>{{ ui_stats.returned }}</b></p><p>● Quá hạn <b>{{ ui_stats.overdue }}</b></p></div></div></div><div class="card"><div class="section-header"><h3>Dòng thời gian</h3><a href="/issues">Xem tất cả →</a></div>{% for issue in recent_issues %}<div class="timeline-item"><strong>{{ 'Đã trả sách' if issue.status == 'returned' else 'Lập phiếu mượn' }}</strong><p>{{ issue.member.name }} · {{ issue.book.title }}</p><small>{{ (issue.return_date if issue.return_date else issue.issue_date).strftime('%d/%m/%Y') }}</small></div>{% else %}<p class="hint">Chưa có hoạt động trong thư viện.</p>{% endfor %}</div></div>{% endblock %}

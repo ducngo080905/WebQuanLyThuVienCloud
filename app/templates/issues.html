@@ -1,0 +1,101 @@
+{% extends "base.html" %}
+{% block title %}Mượn / Trả sách – Thư viện{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div class="eyebrow">Lưu thông tài liệu · Phân hệ Thủ thư</div>
+  <h2>Mượn / Trả sách</h2>
+  <p>Theo dõi các lượt mượn và trả sách</p>
+<button class="btn btn-primary" onclick="openModal('issueModal')">＋ Lập phiếu mượn</button>
+</div>
+
+<div class="stat-grid"><div class="stat-card"><div class="label">Tổng giao dịch</div><div class="value">{{ issues|length }}</div><span class="icon-bg material-symbols-outlined">swap_horiz</span><div class="hint">Dữ liệu hiện tại của thư viện</div></div><div class="stat-card"><div class="label">Đang mượn</div><div class="value">{{ ui_stats.active }}</div><span class="icon-bg material-symbols-outlined">menu_book</span><div class="hint">Dữ liệu hiện tại của thư viện</div></div><div class="stat-card"><div class="label">Đã hoàn tất</div><div class="value">{{ ui_stats.returned }}</div><span class="icon-bg material-symbols-outlined">assignment_turned_in</span><div class="hint">Dữ liệu hiện tại của thư viện</div></div><div class="stat-card"><div class="label">Cần lưu ý / Quá hạn</div><div class="value">{{ ui_stats.overdue }}</div><span class="icon-bg material-symbols-outlined">fmd_bad</span><div class="hint">Dữ liệu hiện tại của thư viện</div></div></div>
+<div class="card">
+  <div class="section-header">
+    <span style="color:var(--muted);font-size:.85rem">{{ issues|length }} lượt giao dịch</span>
+
+  </div>
+<div class="toolbar"><label class="search-box"><span class="material-symbols-outlined">search</span><input id="tableSearch" type="search" aria-label="Tìm kiếm trong danh sách" placeholder="Tìm kiếm theo tên, mã hoặc thông tin..."></label><select id="tableFilter" aria-label="Trạng thái"><option value="">Tất cả trạng thái</option><option value="issued">Đang mượn</option><option value="returned">Đã trả</option><option value="overdue">Quá hạn</option></select><button class="btn" type="button" onclick="window.location.reload()" aria-label="Làm mới"><span class="material-symbols-outlined">refresh</span></button></div>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th>#</th><th>Sách</th><th>Thành viên</th><th>Ngày mượn</th><th>Hạn trả</th><th>Ngày trả</th><th>Trạng thái</th><th>Thao tác</th></tr>
+      </thead>
+      <tbody>
+        {% for issue in issues %}
+        <tr data-row data-filter="{{ 'returned' if issue.status == 'returned' else ('overdue' if issue.due_date.date().isoformat() < today else 'issued') }}">
+          <td style="color:var(--muted);font-size:.8rem">{{ loop.index }}</td>
+          <td><strong>{{ issue.book.title }}</strong></td>
+          <td>{{ issue.member.name }}</td>
+          <td>{{ issue.issue_date.strftime('%d/%m/%Y') }}</td>
+          <td>{{ issue.due_date.strftime('%d/%m/%Y') }}</td>
+          <td>{{ issue.return_date.strftime('%d/%m/%Y') if issue.return_date else '–' }}</td>
+          <td>
+            {% if issue.status == 'returned' %}
+              <span class="badge badge-success">Đã trả</span>
+            {% elif issue.due_date.date().isoformat() < today %}
+              <span class="badge badge-danger">Quá hạn</span>
+            {% else %}
+              <span class="badge badge-info">Đang mượn</span>
+            {% endif %}
+          </td>
+          <td>
+            {% if issue.status == 'issued' %}
+            <form class="return-form" method="POST" action="/issues/return/{{ issue.id }}"><input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+              <label for="return-date-{{ issue.id }}">Ngày trả thực tế</label>
+              <input id="return-date-{{ issue.id }}" type="date" name="return_date" required min="{{ issue.issue_date.strftime('%Y-%m-%d') }}" value="{{ today }}"/>
+              <button class="btn btn-primary btn-sm" type="submit">Trả sách</button>
+            </form>
+            {% endif %}
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="8" style="text-align:center;color:var(--muted);padding:40px">Chưa có giao dịch nào</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    <div id="filterEmpty" class="empty-filter" hidden>Không tìm thấy dữ liệu phù hợp.</div>
+  </div>
+  <div class="table-footer"><span id="visibleCount">Hiển thị toàn bộ dữ liệu</span><span>Thư viện · Cơ sở chính</span></div>
+</div>
+
+<!-- Form mượn sách -->
+<div class="modal-overlay" id="issueModal">
+  <div class="modal">
+    <h3>Lập phiếu mượn sách</h3>
+    <form method="POST" action="/issues/add"><input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <div class="form-grid">
+        <div class="form-group" style="grid-column:span 2">
+          <label>Chọn sách *</label>
+          <select name="book_id" required>
+            <option value="">-- Chọn sách --</option>
+            {% for b in books %}
+            <option value="{{ b.id }}">{{ b.title }} (còn {{ b.available }} cuốn)</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="form-group" style="grid-column:span 2">
+          <label>Chọn thành viên *</label>
+          <select name="member_id" required>
+            <option value="">-- Chọn thành viên --</option>
+            {% for m in members %}
+            <option value="{{ m.id }}">{{ m.name }} ({{ m.member_id }})</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="issue-date">Ngày mượn *</label>
+          <input id="issue-date" type="date" name="issue_date" required value="{{ today }}" onchange="document.getElementById('due-date').min = this.value"/>
+        </div>
+        <div class="form-group">
+          <label for="due-date">Hạn trả *</label>
+          <input id="due-date" type="date" name="due_date" required min="{{ today }}"/>
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn" style="background:var(--surface2)" onclick="closeModal('issueModal')">Hủy</button>
+        <button type="submit" class="btn btn-primary">Xác nhận mượn</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
