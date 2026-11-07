@@ -194,6 +194,8 @@ class RenewalRequest(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     issue_id = db.Column(db.Integer, db.ForeignKey('issues.id'), nullable=False)
     original_due = db.Column(db.DateTime, nullable=False)
+    requested_days = db.Column(db.Integer, nullable=False, default=7, server_default='7')
+    approved_days = db.Column(db.Integer)
     status = db.Column(db.String(20), nullable=False, default='pending')
     created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
     issue = db.relationship('Issue', backref=db.backref('renewals', cascade='all, delete-orphan'))
@@ -266,6 +268,8 @@ class Announcement(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     title = db.Column(db.String(150), nullable=False)
     body = db.Column(db.Text, nullable=False)
+    color = db.Column(db.String(7), nullable=False, default='#1b3885', server_default='#1b3885')
+    expires_at = db.Column(db.DateTime)
     audience = db.Column(db.String(20), nullable=False)
     target_id = db.Column(db.Integer, db.ForeignKey('users.id'))
     sender_id = db.Column(db.Integer, db.ForeignKey('users.id'))
@@ -280,6 +284,18 @@ class AnnouncementReceipt(db.Model):
     read_at = db.Column(db.DateTime)
     announcement = db.relationship('Announcement', backref=db.backref('receipts',cascade='all, delete-orphan'))
     user = db.relationship('User',backref=db.backref('announcement_receipts',cascade='all, delete-orphan'))
+
+
+class DueReminder(db.Model):
+    __tablename__ = 'due_reminders'
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    issue_id = db.Column(db.Integer, nullable=False)
+    due_date = db.Column(db.Date, nullable=False)
+    book_title = db.Column(db.String(200), nullable=False)
+    removed = db.Column(db.Boolean, nullable=False, default=False)
+    user = db.relationship('User', backref=db.backref('due_reminders', cascade='all, delete-orphan'))
+    __table_args__ = (db.UniqueConstraint('user_id', 'issue_id', 'due_date'),)
 
 
 class ChatThread(db.Model):

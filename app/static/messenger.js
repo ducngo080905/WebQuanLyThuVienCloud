@@ -14,6 +14,13 @@
   let threads = [], contacts = [], selected = null, generation = 0, records = [], peerRead = 0;
   let fetching = false, overviewBusy = false, sending = false, readThrough = 0, acknowledged = 0, lastTyping = 0;
   let typingTimer, lastList = '', retry = null, sendError = false;
+  const threadNodes = new Map();
+  let contactSignature = '';
+  function publishUnread() {
+    const unread = threads.reduce((total, thread) => total + thread.unread, 0);
+    document.dispatchEvent(new CustomEvent('library:chat-unread', {detail:{unread}}));
+    if (isEmbedded) window.parent.postMessage({type:'library-chat-unread',unread},location.origin);
+  }
   let changeCursor = 0, replyTarget = null, editing = null, editDraft = '', stagedFile = null, previewUrl = null, recalling = null, searchVersion = 0, searchBefore = null;
   const composeStates = new Map();
   const summary = message => message.deleted ? 'Tin nhắn đã thu hồi' : (message.body || message.attachment?.filename || 'Tin nhắn');
@@ -21,7 +28,7 @@
   const stream = $('chatStream'), input = $('chatInput'), dialog = $('contactDialog');
   const normalize = s => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/gi, 'd').toLowerCase();
   const initials = name => name.trim().split(/\s+/).slice(-2).map(part => part[0]).join('').toUpperCase();
-  const timeLabel = value => new Date(value).toLocaleTimeString('vi-VN', {hour: '2-digit', minute: '2-digit'});
+  const timeLabel = value => new Date(value).toLocaleTimeString('vi-VN', {hour: '2-digit', minute: '2-digit', hourCycle: 'h23', timeZone: 'Asia/Ho_Chi_Minh'});
   const dateLabel = value => new Date(value).toLocaleDateString('vi-VN', {day: 'numeric', month: 'long', year: 'numeric'});
   const pinned = () => stream.scrollHeight - stream.scrollTop - stream.clientHeight < 100;
   const error = message => { $('chatError').textContent = message || ''; $('chatError').hidden = !message; };
@@ -58,10 +65,13 @@
     const signature = JSON.stringify([threads, query, selected]);
     if (!force && signature === lastList) return;
     lastList = signature;
-    const list = $('threadList'); list.replaceChildren();
+    const list = $('threadList'), nodes = [];
     const filtered = threads.filter(thread => normalize(thread.peer.name).includes(query));
     $('chatTotal').textContent = threads.length;
     for (const thread of filtered) {
+      const key = JSON.stringify([thread, thread.id === selected]);
+      const cached = threadNodes.get(thread.id);
+      if (cached?.key === key) { nodes.push(cached.node); continue; }
       const button = el('button', 'chat-thread' + (thread.id === selected ? ' selected' : '') + (thread.unread ? ' unread' : ''));
       button.type = 'button'; button.setAttribute('aria-pressed', String(thread.id === selected));
       button.append(avatar(thread.peer));
@@ -74,9 +84,15 @@
         time.dateTime = thread.last.created_at; meta.append(time);
       }
       if (thread.unread) { const unread = el('span', 'chat-unread', thread.unread > 99 ? '99+' : thread.unread); unread.setAttribute('aria-label', `${thread.unread} tin chưa đọc`); meta.append(unread); }
-      button.append(copy, meta); button.addEventListener('click', () => selectThread(thread.id)); list.append(button);
+      button.append(copy, meta); button.addEventListener('click', () => selectThread(thread.id));
+      threadNodes.set(thread.id,{key,node:button});nodes.push(button);
     }
-    if (!filtered.length) list.append(el('p', 'chat-list-empty', query ? 'Không tìm thấy cuộc trò chuyện.' : 'Chưa có cuộc trò chuyện. Bấm nút soạn để nhắn tin mới.'));
+    if (!filtered.length) nodes.push(el('p', 'chat-list-empty', query ? 'Không tìm thấy cuộc trò chuyện.' : 'Chưa có cuộc trò chuyện. Bấm nút soạn để nhắn tin mới.'));
+    const keep = new Set(nodes);
+    for (const node of [...list.children]) if (!keep.has(node)) node.remove();
+    nodes.forEach((node,index) => { if (list.children[index] !== node) list.insertBefore(node,list.children[index] || null); });
+    for (const id of threadNodes.keys()) if (!threads.some(thread => thread.id === id)) threadNodes.delete(id);
+    publishUnread();
   }
   async function refreshOverview() {
     if (overviewBusy || embeddedPaused) return;
@@ -241,7 +257,7 @@
       records.push(row); list.append(messageNode(row));
     }
     $('chatEmpty').hidden = records.length > 0;
-    list.querySelectorAll('[data-read-id]').forEach(node => { node.textContent = readLabel(Number(node.dataset.readId)); });
+    list.querySelectorAll('[data-read-id]').forEach(node => { const label=readLabel(Number(node.dataset.readId)); if(node.textContent!==label)node.textContent=label; });
   }
   function saveDraft() { if (selected && !editing) { try { sessionStorage.setItem(`chat-draft-${me}-${selected}`, input.value); } catch (_) {} } }
   function resizeInput() { input.style.height = 'auto'; input.style.height = Math.min(input.scrollHeight, 140) + 'px'; $('chatCharCount').textContent = `${input.value.length.toLocaleString('vi-VN')} / 4.000`; $('chatSend').disabled = sending || input.disabled || (!input.value.trim() && !(editing ? editing.attachment : stagedFile)); }
@@ -278,7 +294,7 @@
     try {
       const data = await api(`threads/${id}?after=${after}&changes=${changeCursor}`);
       if (version !== generation) return;
-      const bottom = initial || pinned(); peerRead = data.peer_read; groupReads = data.group_reads || []; updatePeer(data.peer);
+      const bottom = initial || pinned(); peerRead = data.peer_read; groupReads = data.group_reads || [];
       appendMessages(data.messages, initial); updateMessages(data.updates); changeCursor = data.changes;
       updatePeer(data.peer); updateContext(); $('chatTyping').textContent = data.typing ? `${data.typing_names?.length ? data.typing_names.slice(0,2).join(', ') : data.peer.name} đang nhập…` : '';
       if (initial) $('loadOlder').hidden = !data.has_older;
@@ -303,6 +319,9 @@
   });
   function renderContacts() {
     const query = normalize($('contactSearch').value.trim());
+    const signature = JSON.stringify([contacts,query]);
+    if (signature === contactSignature) return;
+    contactSignature = signature;
     const list = $('contactList'); list.replaceChildren();
     contacts.filter(person => normalize(person.name + ' ' + person.role).includes(query)).forEach(person => {
       const button = el('button', 'chat-contact'); button.type = 'button'; button.append(avatar(person));

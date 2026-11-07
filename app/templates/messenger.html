@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 {% block title %}Tin nhắn – Thư Viện{% endblock %}
-{% block page_styles %}<link rel="stylesheet" href="{{ url_for('static',filename='messenger.css') }}?v=6">{% if chat_embed %}<link rel="stylesheet" href="{{ url_for('static',filename='messenger_embed.css',v='1') }}">{% endif %}{% endblock %}
+{% block page_styles %}<link rel="stylesheet" href="{{ url_for('static',filename='messenger.css',v='6') }}">{% if chat_embed %}<link rel="stylesheet" href="{{ url_for('static',filename='messenger_embed.css',v='1') }}">{% endif %}{% endblock %}
 {% block content %}
 <div class="messenger" id="messenger" data-csrf="{{ csrf_token }}" data-me="{{ current_user.id }}" data-admin="{{ '1' if current_user.role=='admin' else '0' }}">
   <aside class="chat-sidebar" aria-label="Danh sách cuộc trò chuyện">
@@ -33,5 +33,5 @@
   <dialog id="groupInfoDialog" class="chat-contact-dialog chat-group-dialog"><div class="chat-contact-heading"><div><h3 id="groupInfoTitle">Thông tin nhóm</h3><p id="groupInfoDescription"></p></div><button id="closeGroupInfo" class="chat-icon-button" type="button" aria-label="Đóng thông tin nhóm"><span class="material-symbols-outlined">close</span></button></div><p id="groupInfoError" class="chat-error" role="status" hidden></p><div id="groupOwnerTools" hidden><form id="renameGroupForm" class="chat-group-inline-form"><label for="renameGroupName">Tên nhóm</label><div><input id="renameGroupName" maxlength="80" required><button class="btn btn-sm" type="submit">Đổi tên</button></div></form><form id="addGroupMemberForm" class="chat-group-inline-form"><label for="inviteGroupMember">Thêm thành viên</label><div><select id="inviteGroupMember" required><option value="">Chọn người đã thêm bạn…</option></select><button class="btn btn-sm" type="submit">Thêm</button></div></form></div><h4 class="chat-group-members-heading">Thành viên</h4><div id="groupMemberList" class="chat-group-member-list"></div><p class="chat-group-note">Người mới được thêm chỉ xem được tin nhắn từ lúc tham gia. Nếu bạn chặn một thành viên, bạn cần bỏ chặn hoặc rời nhóm để tiếp tục gửi tin.</p><div id="groupLeaveConfirm" class="chat-group-leave-confirm" hidden><p>Bạn sẽ không còn đọc hoặc gửi tin trong nhóm này. Bạn muốn rời nhóm?</p><div><button id="cancelLeaveGroup" class="btn btn-sm" type="button">Ở lại</button><button id="confirmLeaveGroup" class="btn btn-danger btn-sm" type="button">Xác nhận rời</button></div></div><button id="leaveGroup" class="btn btn-danger" type="button">Rời nhóm</button></dialog>
 </div>
 <script src="{{ url_for('static',filename='chat_camera.js',v='1') }}" defer></script>
-<script src="{{ url_for('static',filename='messenger.js') }}?v=6" defer></script>
+<script src="{{ url_for('static',filename='messenger.js',v='6') }}" defer></script>
 {% endblock %}

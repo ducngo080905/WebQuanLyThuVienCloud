@@ -5,6 +5,7 @@ import re
 from datetime import datetime, timedelta
 from flask import Blueprint, abort, g, jsonify, redirect, request, session, url_for
 from app import db
+from sqlalchemy import func, or_, and_
 from app.models import User, LivePresence
 from app.auth import login_required
 
@@ -64,7 +65,13 @@ def account_presence():
     now = datetime.utcnow()
     cutoff = now-timedelta(seconds=45)
     users = User.query.all()
-    presences = LivePresence.query.order_by(LivePresence.last_seen.desc()).all()
+    # A navigation creates a presence row; do not scan/send every past tab.
+    latest = db.session.query(LivePresence.user_id.label('user_id'),
+        func.max(LivePresence.last_seen).label('last_seen')).group_by(LivePresence.user_id).subquery()
+    presences = LivePresence.query.outerjoin(latest, and_(LivePresence.user_id == latest.c.user_id,
+        LivePresence.last_seen == latest.c.last_seen)).filter(or_(
+        latest.c.user_id.isnot(None), and_(LivePresence.closed.is_(False), LivePresence.last_seen >= cutoff)
+    )).order_by(LivePresence.last_seen.desc()).all()
     grouped = {}
     for row in presences:
         grouped.setdefault(row.user_id, []).append(row)

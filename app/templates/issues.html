@@ -8,8 +8,8 @@
 <button class="btn btn-primary" onclick="openModal('issueModal')">＋ Lập phiếu mượn</button>
 </div>
 
-<div class="stat-grid"><div class="stat-card"><div class="label">Tổng giao dịch</div><div class="value">{{ issues|length }}</div><span class="icon-bg material-symbols-outlined">swap_horiz</span><div class="hint">Dữ liệu hiện tại của thư viện</div></div><div class="stat-card"><div class="label">Đang mượn</div><div class="value">{{ ui_stats.active }}</div><span class="icon-bg material-symbols-outlined">menu_book</span><div class="hint">Dữ liệu hiện tại của thư viện</div></div><div class="stat-card"><div class="label">Đã hoàn tất</div><div class="value">{{ ui_stats.returned }}</div><span class="icon-bg material-symbols-outlined">assignment_turned_in</span><div class="hint">Dữ liệu hiện tại của thư viện</div></div><div class="stat-card"><div class="label">Cần lưu ý / Quá hạn</div><div class="value">{{ ui_stats.overdue }}</div><span class="icon-bg material-symbols-outlined">fmd_bad</span><div class="hint">Dữ liệu hiện tại của thư viện</div></div></div>
-<div class="card">
+<div class="stat-grid" id="tableStats"><div class="stat-card"><div class="label">Tổng giao dịch</div><div class="value">{{ issues|length }}</div><span class="icon-bg material-symbols-outlined">swap_horiz</span></div><div class="stat-card"><div class="label">Đang mượn</div><div class="value">{{ ui_stats.active }}</div><span class="icon-bg material-symbols-outlined">menu_book</span></div><div class="stat-card"><div class="label">Đã hoàn tất</div><div class="value">{{ ui_stats.returned }}</div><span class="icon-bg material-symbols-outlined">assignment_turned_in</span></div><div class="stat-card"><div class="label">Cần lưu ý / Quá hạn</div><div class="value">{{ ui_stats.overdue }}</div><span class="icon-bg material-symbols-outlined">fmd_bad</span></div></div>
+<div class="card" id="tableResults">
   <div class="section-header">
     <span style="color:var(--muted);font-size:.85rem">{{ issues|length }} lượt giao dịch</span>
 
@@ -40,7 +40,7 @@
           </td>
           <td>
             {% if issue.status == 'issued' %}
-            <form class="return-form" method="POST" action="/issues/return/{{ issue.id }}"><input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+            <form class="return-form" method="POST" data-refresh="tableStats tableResults issueModal" action="/issues/return/{{ issue.id }}"><input type="hidden" name="csrf_token" value="{{ csrf_token }}">
               <label for="return-date-{{ issue.id }}">Ngày trả thực tế</label>
               <input id="return-date-{{ issue.id }}" type="date" name="return_date" required min="{{ issue.issue_date.strftime('%Y-%m-%d') }}" value="{{ today }}"/>
               <button class="btn btn-primary btn-sm" type="submit">Trả sách</button>
@@ -62,7 +62,7 @@
 <div class="modal-overlay" id="issueModal">
   <div class="modal">
     <h3>Lập phiếu mượn sách</h3>
-    <form method="POST" action="/issues/add"><input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <form method="POST" data-refresh="tableStats tableResults issueModal" action="/issues/add"><input type="hidden" name="csrf_token" value="{{ csrf_token }}">
       <div class="form-grid">
         <div class="form-group" style="grid-column:span 2">
           <label>Chọn sách *</label>

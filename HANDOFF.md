@@ -144,3 +144,56 @@ Chưa triển khai hosting online; push GitHub chỉ đưa code lên, không t�
 ## Checkpoint trước UI smooth (2026-11-06)
 - Đã bỏ hẳn trường Email ở bước 2 /register. Callback Google chỉ hiển thị email ở trạng thái bước 1; server lấy email từ registration_google_claims, không phụ thuộc trường email do client gửi. Nếu client cố gửi email khác proof vẫn bị từ chối.
 - Yêu cầu người dùng: cập nhật repo origin/main hiện có sau thay đổi signup, rồi mới làm smooth. Staging chỉ app/, tests/, README.md, HANDOFF.md; không thêm file untracked ad hoặc instance/secret/database. Các hiệu ứng smooth phải để local khi chờ người dùng xem, checkpoint GitHub vẫn là bản trước smooth.
+
+
+## UI motion removed at user request
+- User requested removing all opening effects and cleaning their code. Deleted local ui_motion.css, page_navigation.css/js and their tests/includes. Removed chat widget opening/closing/icon transitions and toast entry keyframes directly from source CSS; bumped stylesheet versions.
+- Pages, dialogs, floating chat and announcements now open immediately; retained original layouts, functionality and ordinary control hover feedback. No navigation interception, animation timers or motion override stylesheet remains.
+- Checkpoint 68654fa remains on GitHub; current cleanup is local only. Untracked user file ad remains untouched.
+
+## Whole-site performance work (2026-11-06, local only)
+- User clarified perceived sluggishness affects the entire site and authorized full optimization, while keeping all opening/page/modal effects removed. No SPA/history interception or artificial delay added.
+- app/performance.py: content-hash rev URLs for static assets, immutable caching for matching public assets/hashed WOFF2, gzip for HTML/JSON when accepted; account HTML remains no-store. Static requests bypass account DB loading; private media keep authorization.
+- Self-hosted official Inter + Material Symbols WOFF2 and license files in static/fonts; preloaded Latin and symbols. No Google Fonts network dependency per page; Google sign-in itself unchanged.
+- Replaced global full Issue history loading with SQL aggregation only on stats pages. Eager-loaded book covers and loan/member/account relationships on relevant lists. Missing/present fee settings cached in request.environ only (no stale app-context cache). Announcement receipts eager-load announcements. Presence queries return live/recent/latest rows instead of materializing all historical tabs.
+- Cached normalized search indexes + one update/frame for catalog/admin tables. Extracted catalog inline JS. interaction.js adds native POST pending state/duplicate prevention without disabling successful submit button values; canceled/AJAX handlers keep their lifecycle. Preserves sidebar scroll; stable scrollbar space; no opening animations.
+- Live phone overlay avoids repeating inert/layout work when unchanged; presence device DOM retained when unchanged. Chat thread nodes reused by ID/signature; avoids duplicate peer updates, unchanged read receipt text writes, and redundant unread API polling while messenger/widget overview is active. Unread widget messages validate origin and iframe source.
+- Synthetic 80-book probe: catalog 92->11 SQL queries, management books 90->9 (final request cache fix adds one query vs initial report 8), static CSS 2->0. Books HTML ~173 KB -> ~9.2 KB gzip, catalog ~52 KB -> ~4.3 KB. Wall times are machine-local samples, not guaranteed remote latency/FPS.
+- Browser checked admin, catalog no-accent search/clear, admin book table search/clear, open/close Add Book modal (0s/none), profile, accounts live status, messenger overview with no console errors. No real messages/forms/accounts changed. Screenshot instance/performance-review.png; user tab returned to /admin.
+- Keep local until user accepts. origin/main checkpoint remains 68654fa. Do not touch untracked user file ad.
+- Final validation: 112 pytest passed (workspace-local unique basetemp to avoid Windows sandbox temp permissions), 8 Node tests passed; all modified JS syntax checks and git diff --check passed. Running server restarted with these changes. No push/commit performed.
+
+
+## Separate reader discovery page (2026-11-06, local)
+- User requested /catalog differ from the already accepted home page. Home keeps library.html hero/catalog; extracted unchanged book card into _catalog_card.html. /catalog now uses catalog.py + catalog.html/_catalog_results.html with a dedicated search/filter sidebar, counts, availability, four sorting modes, 12-item server pagination, empty state, responsive layout and reader navigation current-page marker.
+- SQLite deterministic library_fold registered per engine for accent-insensitive title/author/ISBN search and sorting; LIKE wildcards autoescaped. No schema/database migration or new actual books/users.
+- discovery.js debounces search, aborts obsolete fetches, replaces results only, synchronizes URL/reset/pagination/back navigation. GET form + associated sidebar fields work without JS. Form does not wrap borrowing POST forms; auth/CSRF and pending/active reader card states retained. No opening animations.
+- Browser verified guest UI with 26 synthetic books on memory-only localhost:5001 preview using unique library_catalog_preview_20261106 cookie; checked live search, availability filter, reset, page 2, no console errors. Screenshot instance/discovery-preview.png uses demo data. Actual running /catalog also verified against real existing books; user tab left there. Preview tab closed/server stopped; real port 5000 remains running. No Git push; checkpoint 68654fa unchanged.
+
+
+## Reader inbox redesign (2026-11-06, local)
+- User screenshot /inbox showed oversized announcement cards and all unread. Replaced with inbox.css/js compact native details list, title/body preview, sender/date, unread dot, all/unread/read filter counts, accent-insensitive indexed search and empty state. Open details marks read via existing private CSRF-protected POST; an open item stays visible in Unread until closed. Read state and counters update without reload. Read-all button has new user-scoped /inbox/read-all POST; native forms redirect back when return_to=inbox, AJAX receives JSON. Read timestamp idempotent; read-all does not overwrite already-read timestamps.
+- Times display UTC+7; list size text reflects actual rows (100-recent note only when limit reached). live_updates.js listens for library:notice-read to remove just-read items from toast queue/local seen state.
+- Six test_messages tests passed including two new tests for layout/time/idempotence and private/CSRF bulk read. JS syntax/diff checks passed.
+- Browser verified against disposable RAM-only preview localhost:5001, cookie library_inbox_preview_20261106, existing synthetic login inbox-preview@example.com. Open/read/filter/search/read-all tested only on sample receipts, no real notifications read or sent. Screenshot instance/inbox-redesign-preview.png uses demo data. Preview tab closed/server stopped; actual port5000 restarted with new code. No commit/push.
+
+
+## Compact reader navigation and notification center (2026-11-06)
+- User requested a rounded compact reader navbar, account actions below the name, login under the same menu, and admin notices folded into Notifications. Added reader_header.html + reader_navigation.css/js: main links Home/Discovery/My Books only; native details account menu Profile/Notifications/POST Logout, guest Login/Register. Closes on outside click, Escape (returns focus), and focus leaving. No opening animations. Admin sidebar/topbar preserved.
+- /notifications is the unified notification center with Tin từ quản trị and Hạn trả sách categories. Prioritizes due loans when present unless tab specified; toast/admin links explicitly select tab=admin. /inbox remains compatible and renders admin category. Reuses existing inbox behavior and own-loan queries; read redirects stay in admin category. Category unread badge follows local read state. Due alert links select loans.
+- Corrected old literal ?v= suffixes in base/messenger/announcement/live templates to url_for v args: they previously corrupted newly added rev hashes; new regression test verifies actual rendered static URLs use immutable cache headers.
+- Validation: 14 message/due/catalog/embed tests + 7 performance tests passed; JS syntax/diff checks passed. Browser tested guest menu login, synthetic reader account menu, Escape, links to both notification categories, no console errors. Preview uses RAM and unique library_nav_preview_20261106 cookie; no actual users/messages changed. Screenshot instance/reader-navbar-preview.png is demo. Port5000 restarted; preview closed/stopped; no commit/push.
+
+
+## Personal bookshelf redesign (2026-11-06, local)
+- User requested improving /my-books layout and moving it into the account dropdown. reader_header.html now leaves Home/Discovery on the main navbar; account menu has Profile/My Books/Notifications/Logout with current-page marker.
+- Rebuilt my_books.html with my_books.css/js: compact linked summary counters, overdue callout, Active/Pending/History panels switched locally via hash (no opening animation). Active loans are cards with cover/title/author, dates, remaining/overdue state, renewal action/pending/limit and fee. Pending requests have clear cancel action; history retains indexed search and processed-request accordion. Without JS all sections remain available through anchor links. When no loans exist but requests are pending, default panel is Pending.
+- Existing borrow/cancel/renew/return authorization, CSRF and date/fee behavior retained; active book cover metadata eager-loaded. Suppressed generic due banner on my-books because the page already has dedicated due states/overdue callout.
+- Five targeted tests passed (own-loan privacy, request lifecycle, ownership/cancel, renewal ownership/limit, reader menu). Browser verified synthetic reader preview in RAM with unique library_bookshelf_preview_20261106 cookie: access from menu, active/pending/history switch, empty search result, no console errors; no cancel/renew forms submitted. Screenshot instance/my-books-redesign-preview.png uses demo data. Preview closed/stopped, actual port5000 restarted. No Git push.
+
+## Sticky reader navbar
+- User requested the rounded navbar stay visible while scrolling every reader page. reader_navigation.css now uses position:sticky at 12px (8px on compact screens, safe-area aware), same z-index/dropdown, no scroll handlers or animation. Added scroll-padding so anchor targets clear the navbar. Verified deep catalog scroll in RAM-only preview: computed position sticky/top 12px and dropdown still usable. Screenshot instance/sticky-navbar-preview.png uses demo data; preview closed/stopped; actual server restarted. Local only.
+
+
+## Color changes reverted at user request
+- User asked to remove all color/background edits beginning with the message "web toàn màu trắng thôi", including its follow-up consistency correction. Removed palette.css and its base.html include entirely, restoring pre-palette component colors/backgrounds. Preserved all earlier layout/navigation/notification/bookshelf/performance changes and the sticky reader navbar. No Git reset, no other user work reverted; no push.

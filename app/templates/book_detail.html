@@ -1,8 +1,42 @@
 {% extends "base.html" %}
 {% block title %}{{ book.title }} – Thư Viện{% endblock %}
+{% block page_styles %}<link rel="stylesheet" href="{{ url_for('static', filename='book_sample.css') }}">{% endblock %}
 {% block content %}
 <a href="/catalog" class="back-link">← Về kho sách</a>
-<section class="card book-detail"><div class="detail-cover">{% if book.cover %}<img src="{{ url_for('main.book_cover',book_id=book.id,v=book.cover.version) }}" alt="Bìa {{ book.title }}">{% else %}<span class="material-symbols-outlined">menu_book</span>{% endif %}</div><div><span class="eyebrow">{{ book.genre or 'Danh mục thư viện' }}</span><h1>{{ book.title }}</h1><p class="detail-author">{{ book.author }}</p><span class="badge badge-{{ 'success' if book.available else 'warn' }}">{{ book.available }} / {{ book.quantity }} bản sẵn sàng</span><dl class="book-metadata"><dt>ISBN</dt><dd>{{ book.isbn }}</dd><dt>Nhà xuất bản</dt><dd>{{ book.info.publisher if book.info and book.info.publisher else 'Chưa cập nhật' }}</dd><dt>Năm xuất bản</dt><dd>{{ book.info.year if book.info and book.info.year else '–' }}</dd><dt>Số trang</dt><dd>{{ book.info.pages if book.info and book.info.pages else '–' }}</dd><dt>Ngôn ngữ</dt><dd>{{ book.info.language if book.info and book.info.language else '–' }}</dd><dt>Vị trí kệ</dt><dd>{{ book.info.shelf if book.info and book.info.shelf else '–' }}</dd></dl><div class="detail-actions">{% if is_staff %}<a class="btn btn-primary" href="{{ url_for('features.edit_book',book_id=book.id) }}">Chỉnh sửa sách &amp; đọc thử</a>{% elif current_user %}{% if active %}<a class="btn" href="/my-books">Bạn đang mượn sách này</a>{% elif pending %}<a class="btn" href="/my-books">Xem yêu cầu đang chờ</a>{% elif book.available %}<form method="post" action="{{ url_for('auth.request_book',book_id=book.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><button class="btn btn-primary">Yêu cầu mượn</button></form>{% else %}<span class="hint">Sách hiện đã được mượn hết.</span>{% endif %}{% else %}<a class="btn btn-primary" href="/login">Đăng nhập để mượn</a>{% endif %}{% if book.sample_pages %}<a class="btn" href="#reading-sample">Đọc thử {{ book.sample_pages|sum(attribute='page_count') }} trang</a>{% endif %}</div></div></section>
+<section class="card book-detail"><div class="detail-cover">{% if book.cover %}<img src="{{ url_for('main.book_cover',book_id=book.id,v=book.cover.version) }}" alt="Bìa {{ book.title }}">{% else %}<span class="material-symbols-outlined">menu_book</span>{% endif %}</div><div><span class="eyebrow">{{ book.genre or 'Danh mục thư viện' }}</span><h1>{{ book.title }}</h1><p class="detail-author">{{ book.author }}</p><span class="badge badge-{{ 'success' if book.available else 'warn' }}">{{ book.available }} / {{ book.quantity }} bản sẵn sàng</span><dl class="book-metadata"><dt>ISBN</dt><dd>{{ book.isbn }}</dd><dt>Nhà xuất bản</dt><dd>{{ book.info.publisher if book.info and book.info.publisher else 'Chưa cập nhật' }}</dd><dt>Năm xuất bản</dt><dd>{{ book.info.year if book.info and book.info.year else '–' }}</dd><dt>Số trang</dt><dd>{{ book.info.pages if book.info and book.info.pages else '–' }}</dd><dt>Ngôn ngữ</dt><dd>{{ book.info.language if book.info and book.info.language else '–' }}</dd><dt>Vị trí kệ</dt><dd>{{ book.info.shelf if book.info and book.info.shelf else '–' }}</dd></dl><div class="detail-actions" id="borrowAction{{ book.id }}">{% if is_staff %}<a class="btn btn-primary" href="{{ url_for('features.edit_book',book_id=book.id) }}">Chỉnh sửa sách &amp; đọc thử</a>{% elif current_user %}{% if active %}<a class="btn" href="/my-books">Bạn đang mượn sách này</a>{% elif pending %}<a class="btn" href="/my-books">Xem yêu cầu đang chờ</a>{% elif book.available %}<form method="post" data-refresh="borrowAction{{ book.id }}" action="{{ url_for('auth.request_book',book_id=book.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><button class="btn btn-primary">Yêu cầu mượn</button></form>{% else %}<span class="hint">Sách hiện đã được mượn hết.</span>{% endif %}{% else %}<a class="btn btn-primary" href="/login">Đăng nhập để mượn</a>{% endif %}{% if book.sample_pages %}<a class="btn" href="#reading-sample">Đọc thử {{ book.sample_pages|sum(attribute='page_count') }} trang</a>{% endif %}</div></div></section>
 <section class="card"><h2>Giới thiệu cuốn sách</h2><p class="book-description">{{ book.info.description if book.info and book.info.description else 'Thư viện chưa bổ sung phần giới thiệu cho cuốn sách này.' }}</p></section>
-<section class="card" id="reading-sample"><div class="section-header"><h2>Đọc thử các trang đầu</h2><span class="badge badge-info">{{ book.sample_pages|sum(attribute='page_count') }} trang</span></div>{% if book.sample_pages %}<p class="hint">Bản đọc thử do thư viện cung cấp. Các trang hiển thị theo thứ tự tệp tải lên.</p><div class="sample-reader">{% for page in book.sample_pages %}<figure>{% if page.mimetype=='application/pdf' %}<iframe class="sample-pdf" src="{{ url_for('features.sample_image',page_id=page.id) }}" title="PDF đọc thử {{ book.title }}" loading="lazy"></iframe><a class="btn btn-sm" href="{{ url_for('features.sample_image',page_id=page.id) }}" target="_blank" rel="noopener">Mở PDF đọc thử trong tab mới</a>{% else %}<img src="{{ url_for('features.sample_image',page_id=page.id) }}" alt="Trang đọc thử {{ page.position }} – {{ book.title }}" loading="lazy">{% endif %}<figcaption>{{ 'PDF đọc thử · ' ~ page.page_count ~ ' trang' if page.mimetype == 'application/pdf' else 'Ảnh đọc thử ' ~ page.position }}</figcaption></figure>{% endfor %}</div>{% else %}<p class="empty-filter">Chưa có bản đọc thử cho cuốn sách này.</p>{% endif %}</section>
+<section class="card reading-sample" id="reading-sample" aria-labelledby="sample-heading">
+  <div class="sample-heading">
+    <div>
+      <span class="eyebrow">Trích đoạn</span>
+      <h2 id="sample-heading">Đọc thử</h2>
+    </div>
+    {% if book.sample_pages %}
+    <p>{{ book.sample_pages|sum(attribute='page_count') }} trang</p>
+    {% endif %}
+  </div>
+  {% if book.sample_pages %}
+  <div class="sample-reader">
+    {% for page in book.sample_pages %}
+    {% set sample_url = url_for('features.sample_image', page_id=page.id) %}
+    <figure class="sample-entry">
+      {% if page.mimetype == 'application/pdf' %}
+      <figcaption class="sample-document">
+        <span>PDF · {{ page.page_count }} trang</span>
+        <a href="{{ sample_url }}" target="_blank" rel="noopener">
+          Mở PDF <span class="material-symbols-outlined" aria-hidden="true">open_in_new</span>
+        </a>
+      </figcaption>
+      <iframe class="sample-pdf" src="{{ sample_url }}#page=1&amp;view=Fit&amp;navpanes=0" title="Đọc thử {{ book.title }} (PDF {{ loop.index }})" loading="lazy"></iframe>
+      {% else %}
+      <img src="{{ sample_url }}" alt="Trang đọc thử {{ page.position }} – {{ book.title }}" loading="lazy" decoding="async">
+      <figcaption class="sample-image-caption">Trang {{ page.position }}</figcaption>
+      {% endif %}
+    </figure>
+    {% endfor %}
+  </div>
+  {% else %}
+  <p class="hint">Chưa có bản đọc thử cho cuốn sách này.</p>
+  {% endif %}
+</section>
 {% endblock %}

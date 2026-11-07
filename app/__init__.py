@@ -30,6 +30,10 @@ def create_app(config=None):
         app.config.update(config)
 
     db.init_app(app)
+    from app.performance import install_performance
+    install_performance(app)
+    from app.catalog import install_catalog_search
+    install_catalog_search(app)
 
     from app.routes import main
     app.register_blueprint(main)
@@ -37,6 +41,9 @@ def create_app(config=None):
     from app.auth import auth, install_auth
     app.register_blueprint(auth)
     install_auth(app)
+    from app.operations import operations, install_operations
+    app.register_blueprint(operations)
+    install_operations(app)
     from app.google_login import google_auth, google_context
     app.register_blueprint(google_auth)
     app.context_processor(google_context)

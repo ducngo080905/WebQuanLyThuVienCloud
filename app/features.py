@@ -2,7 +2,7 @@ from datetime import datetime, timedelta
 from functools import wraps
 from io import BytesIO
 import secrets
-from flask import Blueprint, abort, current_app, flash, g, redirect, render_template, request, send_file, url_for
+from flask import Blueprint, abort, current_app, flash, g, redirect, render_template, request, send_file, url_for, has_request_context
 from sqlalchemy.exc import IntegrityError
 from app import db
 from app.models import (Book, BookInfo, SamplePage, Issue, User, BorrowRequest,
@@ -24,8 +24,15 @@ def staff_required(view):
 
 
 def setting(key, default=0):
-    row = db.session.get(LibrarySetting, key)
-    return row.value if row else default
+    # One lookup per key/request, even when a table contains many loan rows.
+    if not has_request_context():
+        row = db.session.get(LibrarySetting, key)
+        return row.value if row else default
+    cache = request.environ.setdefault('library.settings', {})
+    if key not in cache:
+        row = db.session.get(LibrarySetting, key)
+        cache[key] = row.value if row else None
+    return cache[key] if cache[key] is not None else default
 
 
 def fine_amount(issue):
@@ -36,15 +43,11 @@ def fine_amount(issue):
 def install_features(app):
     @app.context_processor
     def feature_context():
-        due_count=0
         pending_recovery_count=0
-        if g.get('user'):
-            due_count=Issue.query.filter(Issue.member_id==g.user.member_id,Issue.status=='issued',
-                       Issue.due_date<datetime.combine(datetime.now().date()+timedelta(days=4),datetime.min.time())).count()
-            if g.user.role=='admin':
-                pending_recovery_count=AccountRecovery.query.filter_by(status='pending').count()
+        if g.get('user') and g.user.role=='admin':
+            pending_recovery_count=AccountRecovery.query.filter_by(status='pending').count()
         return {'fine_amount':fine_amount,'fine_rate':setting('fine_per_day'),
-                'due_notice_count':due_count,'pending_recovery_count':pending_recovery_count}
+                'pending_recovery_count':pending_recovery_count}
 
 
 def read_samples(files):
@@ -154,9 +157,20 @@ def edit_book(book_id):
             db.session.rollback()
             flash(str(error) if isinstance(error,ValueError) else 'ISBN đã được dùng cho sách khác.','danger')
         else:
-            flash('Đã cập nhật sách và bản đọc thử.','success')
-            return redirect(url_for('features.detail',book_id=book.id))
+            flash('Đã chỉnh sửa sách.','success')
+            return redirect(url_for('features.edit_book',book_id=book.id), code=303)
     return render_template('book_edit.html',book=book)
+
+
+def renewal_duration(original_due, default):
+    try:
+        days = int(request.form.get('days', default))
+        if days < 1:
+            raise ValueError
+        return days, original_due + timedelta(days=days)
+    except (ValueError, OverflowError):
+        flash('Nhập số ngày gia hạn là số nguyên dương và cho ra hạn trả hợp lệ.', 'danger')
+        return None
 
 
 @features.post('/my-books/<int:issue_id>/renew')
@@ -172,10 +186,14 @@ def request_renewal(issue_id):
     elif any(item.status=='pending' for item in issue.renewals):
         flash('Bạn đã có yêu cầu gia hạn đang chờ duyệt.','info')
     else:
-        db.session.add(RenewalRequest(issue_id=issue.id,original_due=issue.due_date))
+        duration = renewal_duration(issue.due_date, default=7)
+        if duration is None:
+            return redirect(url_for('auth.my_books'))
+        days, _ = duration
+        db.session.add(RenewalRequest(issue_id=issue.id, original_due=issue.due_date, requested_days=days))
         try:
             db.session.commit()
-            flash('Đã gửi yêu cầu gia hạn thêm 7 ngày.','success')
+            flash(f'Đã gửi yêu cầu gia hạn thêm {days} ngày.','success')
         except IntegrityError:
             db.session.rollback()
             flash('Yêu cầu đang chờ duyệt.','info')
@@ -206,13 +224,18 @@ def review_renewal(item_id):
         if approved>=2 or issue.due_date.date()<datetime.now().date() or not issue.member.account or not issue.member.account.active:
             flash('Yêu cầu không còn đủ điều kiện gia hạn.','danger')
             return redirect(url_for('features.renewals'))
-        changed=RenewalRequest.query.filter_by(id=item.id,status='pending').update({'status':'approved'},synchronize_session=False)
+        duration = renewal_duration(item.original_due, default=item.requested_days)
+        if duration is None:
+            return redirect(url_for('features.renewals'))
+        days, new_due = duration
+        changed=RenewalRequest.query.filter_by(id=item.id,status='pending').update(
+            {'status':'approved', 'approved_days': days},synchronize_session=False)
         extended=Issue.query.filter_by(id=issue.id,status='issued',due_date=item.original_due).update(
-            {'due_date':item.original_due+timedelta(days=7)},synchronize_session=False) if changed else 0
+            {'due_date':new_due},synchronize_session=False) if changed else 0
         if not extended:
             db.session.rollback();flash('Sách đã trả hoặc hạn trả vừa thay đổi. Không gia hạn lặp.','danger')
         else:
-            db.session.commit();flash('Đã gia hạn thêm 7 ngày.','success')
+            db.session.commit();flash(f'Đã gia hạn thêm {days} ngày.','success')
     return redirect(url_for('features.renewals'))
 
 
@@ -229,7 +252,7 @@ def reports():
             if not row: row=LibrarySetting(key='fine_per_day');db.session.add(row)
             row.value=rate;db.session.commit();flash('Đã lưu mức phí trễ hạn.','success')
         except ValueError: flash('Mức phí phải từ 0 đến 1.000.000 đồng/ngày.','danger')
-        return redirect(url_for('features.reports'))
+        return redirect(url_for('features.reports', month=request.args.get('month')))
     month=request.args.get('month',datetime.now().strftime('%Y-%m'))
     try:
         start=datetime.strptime(month,'%Y-%m');end=(start.replace(day=28)+timedelta(days=4)).replace(day=1)
@@ -336,9 +359,7 @@ def review_recovery(item_id):
 @features.get('/notifications')
 @login_required
 def notifications():
-    loans=Issue.query.filter_by(member_id=g.user.member_id,status='issued').order_by(Issue.due_date).all()
-    today=datetime.now().date()
-    return render_template('notifications.html',loans=[loan for loan in loans if (loan.due_date.date()-today).days<=3],today=today)
+    return redirect(url_for('auth.library_home'))
 
 
 def recovery_cipher():

@@ -17,6 +17,10 @@ def upgrade_schema(app):
                          ('page_count', 'INTEGER NOT NULL DEFAULT 1')],
         'password_resets': [('account_guard', "VARCHAR(64) NOT NULL DEFAULT ''")],
         'mail_records': [('dispatch_key', 'VARCHAR(100)')],
+        'announcements': [('color', "VARCHAR(7) NOT NULL DEFAULT '#1b3885'"),
+                          ('expires_at', 'DATETIME')],
+        'renewal_requests': [('requested_days', 'INTEGER NOT NULL DEFAULT 7'),
+                             ('approved_days', 'INTEGER')],
     }
     inspector=inspect(db.engine)
     changes=[]

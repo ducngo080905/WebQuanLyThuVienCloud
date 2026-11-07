@@ -39,6 +39,8 @@ def test_book_information_samples_edit_and_public_visibility(feature_app):
          'quantity':'5','description':'Description with <script>','publisher':'Publisher','year':'2020','pages':'123',
          'language':'Vietnamese','shelf':'A1','samples':[(BytesIO(pdf),'sample.pdf'),(png(),'page.png')]},follow_redirects=True)
     assert result.status_code==200
+    assert result.request.path==f'/admin/books/{book.id}/edit'
+    assert 'Đã chỉnh sửa sách.' in result.text
     assert book.title=='New title' and book.quantity==5 and book.available==4
     assert SamplePage.query.count()==2
     guest=feature_app.test_client();page=guest.get(f'/book/{book.id}')
@@ -66,11 +68,18 @@ def test_renewal_ownership_and_double_approval(feature_app):
     issue=Issue(book=book,member_id=user.member_id,due_date=datetime.now()+timedelta(days=3))
     db.session.add(issue);db.session.commit();original=issue.due_date
     assert other.post(f'/my-books/{issue.id}/renew').status_code==403
-    for _ in range(2):reader.post(f'/my-books/{issue.id}/renew')
+    reader.post(f'/my-books/{issue.id}/renew',data={'days':'-1'})
+    assert RenewalRequest.query.count()==0
+    for _ in range(2):reader.post(f'/my-books/{issue.id}/renew',data={'days':'14'})
     assert RenewalRequest.query.count()==1
     item=RenewalRequest.query.one()
-    for _ in range(2):admin.post(f'/admin/renewals/{item.id}/review',data={'action':'approve'})
-    db.session.expire_all();assert issue.due_date==original+timedelta(days=7) and book.available==0
+    assert item.requested_days==14
+    admin.post(f'/admin/renewals/{item.id}/review',data={'action':'approve','days':'1.5'})
+    db.session.refresh(item)
+    assert item.status=='pending'
+    for _ in range(2):admin.post(f'/admin/renewals/{item.id}/review',data={'action':'approve','days':'21'})
+    db.session.expire_all()
+    assert item.approved_days==21 and issue.due_date==original+timedelta(days=21) and book.available==0
     assert reader.get('/admin/renewals').status_code==403
     assert admin.get('/admin/renewals').status_code==200
 
@@ -135,9 +144,19 @@ def test_web_due_notifications_no_email_endpoints(feature_app):
     db.session.add(book);db.session.flush()
     db.session.add_all([Issue(book_id=book.id,member_id=user.member_id,due_date=datetime.now()-timedelta(days=1)),
                         Issue(book_id=book.id,member_id=user.member_id,due_date=datetime.now()+timedelta(days=2))]);db.session.commit()
-    page=reader.get('/notifications')
-    assert page.status_code==200 and 'Quá hạn'.encode() in page.data and 'Còn 2 ngày'.encode() in page.data
-    assert b'Overdue Book' not in admin.get('/notifications').data
+    notices=reader.get('/live-updates').json['announcements']
+    assert len(notices)==2 and all('Overdue Book' in item['body'] for item in notices)
+    assert admin.get('/live-updates').json['announcements']==[]
+    item_id=notices[0]['id'].removeprefix('due-')
+    endpoint=f'/admin/due-reminders/{item_id}/delete'
+    assert reader.post(endpoint).status_code==403
+    assert 'Overdue Book' in admin.get('/admin/announcements').text
+    assert admin.post(endpoint).status_code==303
+    assert reader.get('/live-updates').json['announcements']==notices[1:]
+    assert reader.get('/live-updates').json['announcements']==notices[1:]
+    Issue.query.filter_by(member_id=user.member_id).update({'status':'returned'})
+    db.session.commit()
+    assert reader.get('/live-updates').json['announcements']==notices[1:]
     assert b'send-reminders' not in admin.get('/admin/reports').data
     assert admin.post('/admin/send-reminders').status_code==404
     assert 'send-reminders' not in feature_app.cli.commands
@@ -169,10 +188,14 @@ def test_additive_schema_upgrade_preserves_existing_preview(tmp_path):
         connection.execute("INSERT INTO sample_pages VALUES (1,999,1,?)",(b'legacy-image',))
         connection.execute('CREATE TABLE mail_records (id INTEGER PRIMARY KEY, kind VARCHAR(30) NOT NULL, recipient VARCHAR(120) NOT NULL, issue_id INTEGER, sent_at DATETIME NOT NULL)')
         connection.execute('CREATE TABLE password_resets (id INTEGER PRIMARY KEY, user_id INTEGER NOT NULL, digest VARCHAR(64) NOT NULL, expires_at DATETIME NOT NULL, used BOOLEAN NOT NULL, created_at DATETIME NOT NULL)')
+        connection.execute('CREATE TABLE renewal_requests (id INTEGER PRIMARY KEY, issue_id INTEGER NOT NULL, original_due DATETIME NOT NULL, status VARCHAR(20) NOT NULL, created_at DATETIME NOT NULL)')
+        connection.execute("INSERT INTO renewal_requests VALUES (1, 999, '2026-10-01', 'pending', '2026-09-28')")
     app=create_app({'TESTING':True,'SQLALCHEMY_DATABASE_URI':'sqlite:///'+path.as_posix(),'SECRET_KEY':'test'})
     with app.app_context():
         row=db.session.get(SamplePage,1)
         assert row.data==b'legacy-image' and row.mimetype=='image/jpeg' and row.page_count==1
+        renewal=db.session.get(RenewalRequest,1)
+        assert renewal.requested_days==7 and renewal.approved_days is None
         from app.schema import upgrade_schema
         upgrade_schema(app)
         db.session.remove()

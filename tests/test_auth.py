@@ -155,8 +155,12 @@ def test_reader_request_approval_stock_and_return(auth_app):
     staff=User(email=staff_member.email,role='librarian',member_id=staff_member.id)
     staff.set_password('secret123');db.session.add(staff);db.session.commit()
     assert 'Yêu cầu mượn'.encode() in c.get('/catalog').data
-    for _ in range(2):
-        assert c.post(f'/borrow/request/{book.id}').status_code==302
+    endpoint=f'/borrow/request/{book.id}'
+    updated=c.post(endpoint,headers={'X-Library-Page':'/catalog?q=Request'},follow_redirects=True)
+    assert updated.request.path=='/catalog' and updated.request.args['q']=='Request'
+    assert 'Đã gửi · Xem yêu cầu' in updated.text
+    fallback=c.post(endpoint,headers={'X-Library-Page':'//example.com/catalog'})
+    assert fallback.status_code==302 and fallback.location=='/my-books'
     item=BorrowRequest.query.one()
     assert book.available==1 and item.member_id==reader.member_id
     assert c.post(f'/admin/borrow-requests/{item.id}/review',data={'action':'approve','due_date':'2099-01-01'}).status_code==403

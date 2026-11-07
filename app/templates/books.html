@@ -8,8 +8,8 @@
 {% if is_staff %}<button class="btn btn-primary" onclick="openModal('addBookModal')">＋ Thêm sách</button>{% endif %}
 </div>
 
-<div class="stat-grid"><div class="stat-card"><div class="label">Tổng đầu sách</div><div class="value">{{ books|length }}</div><span class="icon-bg material-symbols-outlined">menu_book</span><div class="hint">Dữ liệu hiện tại của thư viện</div></div><div class="stat-card"><div class="label">Tổng bản lưu</div><div class="value">{{ books|sum(attribute='quantity') }}</div><span class="icon-bg material-symbols-outlined">inventory_2</span><div class="hint">Dữ liệu hiện tại của thư viện</div></div><div class="stat-card"><div class="label">Sẵn sàng</div><div class="value">{{ books|sum(attribute='available') }}</div><span class="icon-bg material-symbols-outlined">check_circle</span><div class="hint">Dữ liệu hiện tại của thư viện</div></div><div class="stat-card"><div class="label">Đang mượn</div><div class="value">{{ (books|sum(attribute='quantity')) - (books|sum(attribute='available')) }}</div><span class="icon-bg material-symbols-outlined">auto_stories</span><div class="hint">Dữ liệu hiện tại của thư viện</div></div></div>
-<div class="card">
+<div class="stat-grid" id="tableStats"><div class="stat-card"><div class="label">Tổng đầu sách</div><div class="value">{{ books|length }}</div><span class="icon-bg material-symbols-outlined">menu_book</span></div><div class="stat-card"><div class="label">Tổng bản lưu</div><div class="value">{{ books|sum(attribute='quantity') }}</div><span class="icon-bg material-symbols-outlined">inventory_2</span></div><div class="stat-card"><div class="label">Sẵn sàng</div><div class="value">{{ books|sum(attribute='available') }}</div><span class="icon-bg material-symbols-outlined">check_circle</span></div><div class="stat-card"><div class="label">Đang mượn</div><div class="value">{{ (books|sum(attribute='quantity')) - (books|sum(attribute='available')) }}</div><span class="icon-bg material-symbols-outlined">auto_stories</span></div></div>
+<div class="card" id="tableResults">
   <div class="section-header">
     <span style="color:var(--muted);font-size:.85rem">{{ books|length }} đầu sách trong danh mục</span>
 
@@ -36,7 +36,7 @@
             {% endif %}
           </td>
           <td>
-            {% if is_staff %}<div class="table-actions"><a class="btn btn-sm" href="{{ url_for('features.edit_book',book_id=book.id) }}">Chỉnh sửa</a><button class="btn btn-sm" type="button" onclick="openModal('bookCover{{ book.id }}')">Ảnh bìa</button><form class="book-delete-form" method="POST" action="/books/delete/{{ book.id }}" onsubmit="return confirm('Xóa sách này và toàn bộ phiếu mượn liên quan?')"><input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+            {% if is_staff %}<div class="table-actions"><a class="btn btn-sm" href="{{ url_for('features.edit_book',book_id=book.id) }}">Chỉnh sửa</a><button class="btn btn-sm" type="button" onclick="openModal('bookCover{{ book.id }}')">Ảnh bìa</button><form class="book-delete-form" method="POST" data-refresh="tableStats tableResults coverDialogs addBookModal" action="/books/delete/{{ book.id }}" onsubmit="return confirm('Xóa sách này và toàn bộ phiếu mượn liên quan?')"><input type="hidden" name="csrf_token" value="{{ csrf_token }}">
               <button class="btn btn-danger btn-sm" type="submit">Xóa</button>
             </form></div>{% endif %}
           </td>
@@ -55,7 +55,7 @@
 {% if is_staff %}<div class="modal-overlay" id="addBookModal">
   <div class="modal">
     <h3>Thêm sách mới</h3>
-    <form method="POST" action="/books/add" enctype="multipart/form-data"><input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <form method="POST" data-refresh="tableStats tableResults coverDialogs addBookModal" action="/books/add" enctype="multipart/form-data"><input type="hidden" name="csrf_token" value="{{ csrf_token }}">
       <div class="form-grid">
         <div class="form-group" style="grid-column:span 2">
           <label>Tên sách *</label>
@@ -87,7 +87,7 @@
   </div>
 </div>
 
-{% for book in books %}<div class="modal-overlay" id="bookCover{{ book.id }}"><div class="modal"><h3>Ảnh bìa sách</h3><p class="cover-title">{{ book.title }}</p><form method="post" enctype="multipart/form-data" action="{{ url_for('main.update_book_cover',book_id=book.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><div class="form-group"><label for="coverFile{{ book.id }}">Chọn ảnh bìa mới</label><input id="coverFile{{ book.id }}" type="file" name="cover" accept="image/jpeg,image/png,image/webp" data-cover-preview="coverPreview{{ book.id }}"><span class="hint">JPG, PNG hoặc WebP · tối đa 5 MB</span><img id="coverPreview{{ book.id }}" class="cover-preview" alt="Xem trước bìa {{ book.title }}" {% if book.cover %}src="{{ url_for('main.book_cover',book_id=book.id,v=book.cover.version) }}"{% else %}hidden{% endif %}></div><div class="modal-actions"><button class="btn" type="button" onclick="closeModal('bookCover{{ book.id }}')">Hủy</button>{% if book.cover %}<button class="btn btn-danger" type="submit" name="remove_cover" value="1">Gỡ ảnh</button>{% endif %}<button class="btn btn-primary" type="submit">Lưu ảnh bìa</button></div></form></div></div>{% endfor %}
+<div id="coverDialogs">{% for book in books %}<div class="modal-overlay" id="bookCover{{ book.id }}"><div class="modal"><h3>Ảnh bìa sách</h3><p class="cover-title">{{ book.title }}</p><form method="post" data-refresh="tableStats tableResults coverDialogs addBookModal" enctype="multipart/form-data" action="{{ url_for('main.update_book_cover',book_id=book.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><div class="form-group"><label for="coverFile{{ book.id }}">Chọn ảnh bìa mới</label><input id="coverFile{{ book.id }}" type="file" name="cover" accept="image/jpeg,image/png,image/webp" data-cover-preview="coverPreview{{ book.id }}"><span class="hint">JPG, PNG hoặc WebP · tối đa 5 MB</span><img id="coverPreview{{ book.id }}" class="cover-preview" alt="Xem trước bìa {{ book.title }}" {% if book.cover %}src="{{ url_for('main.book_cover',book_id=book.id,v=book.cover.version) }}"{% else %}hidden{% endif %}></div><div class="modal-actions"><button class="btn" type="button" onclick="closeModal('bookCover{{ book.id }}')">Hủy</button>{% if book.cover %}<button class="btn btn-danger" type="submit" name="remove_cover" value="1">Gỡ ảnh</button>{% endif %}<button class="btn btn-primary" type="submit">Lưu ảnh bìa</button></div></form></div></div>{% endfor %}</div>
 <script src="{{ url_for('static',filename='covers.js') }}"></script>
 {% endif %}{% endblock %}
 

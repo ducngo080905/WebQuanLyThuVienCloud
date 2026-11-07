@@ -1,0 +1,11 @@
+{% if current_user and current_user.role != 'admin' %}
+<section id="noticeTicker" class="notice-ticker" aria-label="Thông báo thư viện" hidden>
+  <span class="material-symbols-outlined" aria-hidden="true">campaign</span>
+  <div class="notice-ticker-window" tabindex="0" aria-label="Nội dung thông báo">
+    <div class="notice-ticker-track">
+      <ul class="notice-ticker-list"></ul>
+      <ul class="notice-ticker-list" aria-hidden="true"></ul>
+    </div>
+  </div>
+</section>
+{% endif %}

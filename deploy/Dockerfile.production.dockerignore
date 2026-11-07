@@ -1,0 +1,10 @@
+**
+!requirements.txt
+!run.py
+!gunicorn.conf.py
+!app/
+!app/**
+!deploy/
+!deploy/Dockerfile.production
+**/__pycache__/
+**/*.pyc

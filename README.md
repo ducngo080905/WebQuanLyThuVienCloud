@@ -512,3 +512,23 @@ Tài khoản độc giả/thủ thư có biểu tượng chat ở góc dưới b
 Phiên bản sau khi bỏ ô Email lặp ở bước 2 đăng ký được lưu lên GitHub trước khi thêm hiệu ứng chuyển động. Email đăng ký được lấy ở máy chủ từ xác nhận Google của bước 1; người dùng không cần nhập lại.
 
 Các thay đổi làm giao diện mượt hơn sẽ được giữ riêng trên máy để xem thử trước khi cập nhật tiếp lên GitHub. Có thể xem thay đổi bằng `git diff` và tìm mốc đã lưu bằng lịch sử commit trên GitHub. Database SQLite và tệp phiên làm việc trong `instance/` không thuộc bản lưu mã nguồn.
+
+
+### Hiệu năng và tài nguyên giao diện
+
+- Font Inter và Material Symbols được phục vụ trong `app/static/fonts/`, kèm giấy phép; giao diện không cần kết nối Google Fonts khi mở trang.
+- CSS/JS có mã phiên bản theo nội dung và được trình duyệt dùng lại. Sau khi sửa code, khởi động lại ứng dụng để cập nhật mã phiên bản; không cần xóa cache mỗi lần.
+- HTML tài khoản vẫn dùng `Cache-Control: no-store`. Tài nguyên công khai được cache riêng; quyền xem ảnh/tệp chat không thay đổi.
+- Phản hồi HTML/JSON lớn được nén gzip nếu trình duyệt hỗ trợ. Thống kê dùng SQL tổng hợp; danh sách sách và khoản mượn tải các dữ liệu liên quan cùng lượt thay vì truy vấn theo từng dòng.
+- Biểu mẫu POST thông thường hiện trạng thái đang gửi và ngăn bấm gửi lặp. Các trang và hộp thoại mở trực tiếp, không dùng hiệu ứng chuyển cảnh.
+- Kiểm tra hồi quy hiệu năng: `python -m pytest tests/test_performance.py -q`; kiểm tra gửi biểu mẫu/camera: `node --test tests/interaction.test.cjs tests/chat_camera.test.cjs`.
+
+
+### Bảo trì và phát hành phiên bản
+
+- Quản trị viên bật/tắt bảo trì tại ô **Cơ sở chính** ở cuối thanh bên. Có hộp xác nhận và trang xem trước, không cần bật thật để xem giao diện.
+- Bảo trì chặn các yêu cầu mới của người dùng/thủ thư ở server với HTTP 503; admin vẫn truy cập để điều khiển. Tab đang mở kiểm tra mỗi giây và tự chuyển sang trang bảo trì, tự quay lại khi mở web. Tab nền có thể bị trình duyệt giới hạn; không thể hủy thao tác đã hoàn tất trước thời điểm bật.
+- Web kiểm tra phiên bản, hiện **Cập nhật / Để sau**, không tự tải lại làm mất thao tác. Lần đầu triển khai chức năng này, các tab cũ phải tải lại một lần.
+- Mỗi phiên bản production đặt `APP_VERSION` bằng ID release/commit; local tự tính từ code. Giữ SECRET_KEY và dữ liệu bền vững khi đổi release.
+- Xem [hướng dẫn production, staging, bảo trì và quy trình blue-green](deploy/README.md). Cấu hình đã chuẩn bị; chưa triển khai lên hosting và chưa chuyển database SQLite sang PostgreSQL.
+- Kiểm tra: `python -m pytest tests/test_operations.py -q` và `node --test tests/operations.test.cjs`.

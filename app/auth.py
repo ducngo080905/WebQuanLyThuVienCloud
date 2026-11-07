@@ -4,6 +4,7 @@ import secrets
 import hashlib
 from flask import Blueprint, abort, current_app, flash, g, redirect, render_template, request, session, url_for
 from sqlalchemy import func
+from sqlalchemy.orm import joinedload, selectinload
 from sqlalchemy.exc import IntegrityError
 from app import db
 from app.models import User, Member, Issue, Book, BorrowRequest, RegistrationBlock, DeletedAccountId, PasswordChangeRequired, GoogleIdentity
@@ -16,6 +17,10 @@ def install_auth(app):
     @app.before_request
     def authenticate():
         g.activity_logout_session = None
+        # Public static assets never need a session or database lookup.
+        if request.endpoint == 'static':
+            g.user = None
+            return
         g.user = db.session.get(User, session.get('user_id')) if session.get('user_id') else None
         if session.get('user_id') and not g.user:
             session.clear()
@@ -30,7 +35,10 @@ def install_auth(app):
         if g.user and not g.user.active:
             session.clear()
             g.user = None
-        if g.user and g.user.password_change_required and request.endpoint not in ('auth.profile','auth.logout','static','activity.heartbeat','messages.live','messages.phone','messages.read'):
+        from app.operations import maintenance_gate
+        blocked=maintenance_gate()
+        if blocked is not None:return blocked
+        if g.user and g.user.password_change_required and request.endpoint not in ('auth.profile','auth.logout','static','activity.heartbeat','messages.live','messages.phone','messages.read','operations.status','operations.page','operations.toggle'):
             return redirect(url_for('auth.profile'))
         # An old login tab may be submitted after another tab has signed in.
         if g.user and request.endpoint == 'auth.login':
@@ -236,8 +244,8 @@ def profile():
 @auth.get('/my-books')
 @login_required
 def my_books():
-    loans = Issue.query.filter_by(member_id=g.user.member_id).order_by(Issue.issue_date.desc()).all()
-    requests = BorrowRequest.query.filter_by(member_id=g.user.member_id).order_by(BorrowRequest.created_at.desc()).all()
+    loans = Issue.query.options(joinedload(Issue.book).joinedload(Book.cover), selectinload(Issue.renewals)).filter_by(member_id=g.user.member_id).order_by(Issue.issue_date.desc()).all()
+    requests = BorrowRequest.query.options(joinedload(BorrowRequest.book).joinedload(Book.cover)).filter_by(member_id=g.user.member_id).order_by(BorrowRequest.created_at.desc()).all()
     today = datetime.now().date()
     active_loans = sorted((loan for loan in loans if loan.status == 'issued'), key=lambda loan: loan.due_date)
     return render_template('my_books.html', today=today,
@@ -280,7 +288,7 @@ def accounts():
                 db.session.commit()
                 flash('Đã cập nhật quyền tài khoản.', 'success')
         return redirect(url_for('auth.accounts'))
-    return render_template('accounts.html', users=User.query.order_by(User.id).all(),
+    return render_template('accounts.html', users=User.query.options(joinedload(User.member), joinedload(User.google_identity)).order_by(User.id).all(),
                            unlinked_members=Member.query.filter(~Member.account.has(),~Member.email.like('%@deleted.invalid')).all(),
                            registration_blocks=RegistrationBlock.query.order_by(RegistrationBlock.created_at.desc()).all())
 
@@ -296,7 +304,8 @@ def library_home():
 
 @auth.get('/catalog')
 def catalog():
-    return render_catalog()
+    from app.catalog import catalog_page
+    return catalog_page()
 
 
 def render_catalog():
@@ -304,7 +313,7 @@ def render_catalog():
     if g.user:
         pending = {r.book_id for r in BorrowRequest.query.filter_by(member_id=g.user.member_id, status='pending')}
         active = {i.book_id for i in Issue.query.filter_by(member_id=g.user.member_id, status='issued')}
-    return render_template('library.html', books=Book.query.order_by(Book.created_at.desc()).all(),
+    return render_template('library.html', books=Book.query.options(joinedload(Book.cover)).order_by(Book.created_at.desc()).all(),
                            pending_books=pending, active_books=active)
 
 
@@ -328,6 +337,11 @@ def request_book(book_id):
         except IntegrityError:
             db.session.rollback()
             flash('Yêu cầu đã tồn tại. Vui lòng chờ thủ thư duyệt.', 'info')
+    path, separator, query = request.headers.get('X-Library-Page', '').partition('?')
+    allowed = (url_for('auth.library_home'), url_for('auth.catalog'),
+               url_for('features.detail', book_id=book_id))
+    if path in allowed:
+        return redirect(path + separator + query, code=303)
     return redirect(url_for('auth.my_books'))
 
 

@@ -97,6 +97,9 @@ def sign_in():
     if registration_blocked(email, subject):
         return fail('Tài khoản này đã bị chặn đăng ký. Vui lòng liên hệ quản trị viên.')
     identity = GoogleIdentity.query.filter_by(subject=subject).first()
+    if g.get('maintenance_enabled') and not (g.get('user') and g.user.role=='admin') and not (identity and identity.user.active and identity.user.role=='admin'):
+        from app.operations import maintenance_response
+        return maintenance_response()
     if linking:
         if not g.user:
             return fail('Vui lòng đăng nhập bằng mật khẩu trước khi liên kết Google.')

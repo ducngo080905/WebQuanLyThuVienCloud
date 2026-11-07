@@ -3,22 +3,31 @@ from app import db
 from app.models import Book, Member, Issue, User, BookCover
 from datetime import datetime
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy import func, case, distinct
+from sqlalchemy.orm import joinedload
 
 main = Blueprint('main', __name__)
 
 @main.app_context_processor
 def interface_stats():
-    loans = (Issue.query.filter_by(member_id=g.user.member_id).all()
-             if g.get('user') and g.user.role == 'reader' else Issue.query.all())
-    active = [i for i in loans if i.status == 'issued']
-    overdue = [i for i in active if i.due_date.date() < datetime.now().date()]
-    return {'ui_stats': {
-        'total': len(loans), 'active': len(active),
-        'returned': len(loans) - len(active), 'overdue': len(overdue),
-        'borrowers': len({i.member_id for i in active}),
-        'overdue_members': len({i.member_id for i in overdue}),
-        'active_percent': round(len(active) / len(loans) * 100) if loans else 0
-    }}
+    # Only dashboard/loan tables use this data. Aggregate in SQL instead of
+    # materializing the entire loan history on every page, including login.
+    if request.endpoint not in ('main.index', 'main.issues', 'main.members'):
+        return {}
+    overdue = (Issue.status == 'issued') & (Issue.due_date < datetime.combine(datetime.now().date(), datetime.min.time()))
+    active = Issue.status == 'issued'
+    query = db.session.query(func.count(Issue.id),
+        func.coalesce(func.sum(case((active, 1), else_=0)), 0),
+        func.coalesce(func.sum(case((overdue, 1), else_=0)), 0),
+        func.count(distinct(case((active, Issue.member_id)))),
+        func.count(distinct(case((overdue, Issue.member_id)))))
+    if g.get('user') and g.user.role == 'reader':
+        query = query.filter(Issue.member_id == g.user.member_id)
+    total, active_count, overdue_count, borrowers, overdue_members = query.one()
+    return {'ui_stats': {'total': total, 'active': active_count,
+        'returned': total - active_count, 'overdue': overdue_count,
+        'borrowers': borrowers, 'overdue_members': overdue_members,
+        'active_percent': round(active_count / total * 100) if total else 0}}
 
 # ─── Dashboard ───────────────────────────────────────────────────────────────
 
@@ -32,7 +41,7 @@ def index():
         Issue.status == 'issued',
         Issue.due_date < datetime.combine(datetime.now().date(), datetime.min.time())
     ).count()
-    recent_issues = Issue.query.order_by(Issue.issue_date.desc()).limit(5).all()
+    recent_issues = Issue.query.options(joinedload(Issue.book), joinedload(Issue.member)).order_by(Issue.issue_date.desc()).limit(5).all()
     return render_template('index.html',
                            total_books=total_books,
                            total_accounts=total_accounts,
@@ -46,7 +55,7 @@ def index():
 
 @main.route('/books')
 def books():
-    all_books = Book.query.all()
+    all_books = Book.query.options(joinedload(Book.cover)).all()
     return render_template('books.html', books=all_books)
 
 @main.route('/books/add', methods=['POST'])
@@ -201,7 +210,7 @@ def delete_member(member_id):
 
 @main.route('/issues')
 def issues():
-    all_issues = Issue.query.order_by(Issue.issue_date.desc()).all()
+    all_issues = Issue.query.options(joinedload(Issue.book), joinedload(Issue.member)).order_by(Issue.issue_date.desc()).all()
     books   = Book.query.filter(Book.available > 0).all()
     members = Member.query.all()
     return render_template('issues.html', issues=all_issues, books=books, members=members,
