@@ -8,6 +8,8 @@ db = SQLAlchemy()
 
 def create_app(config=None):
     app = Flask(__name__)
+    if os.environ.get("VERCEL"):
+        app.instance_path = "/tmp/library-instance"
     Path(app.instance_path).mkdir(parents=True, exist_ok=True)
     secret_path = Path(app.instance_path) / 'session-secret'
     if not secret_path.exists():
@@ -58,6 +60,8 @@ def create_app(config=None):
     install_messages(app)
     from app.chat import chat
     app.register_blueprint(chat)
+    from app.mobile import mobile
+    app.register_blueprint(mobile)
 
     @app.errorhandler(413)
     def upload_too_large(error):
