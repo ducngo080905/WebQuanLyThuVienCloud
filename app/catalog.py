@@ -3,6 +3,9 @@ import math
 import unicodedata
 from flask import g, render_template, request
 from sqlalchemy import event, func
+from sqlalchemy import String
+from sqlalchemy.ext.compiler import compiles
+from sqlalchemy.sql.functions import GenericFunction
 from sqlalchemy.orm import joinedload
 from app import db
 from app.models import Book, BorrowRequest, Issue
@@ -11,6 +14,23 @@ from app.models import Book, BorrowRequest, Issue
 def fold(value):
     text = unicodedata.normalize('NFD', (value or '').casefold().replace('đ', 'd'))
     return ''.join(char for char in text if not unicodedata.combining(char))
+
+
+class library_fold(GenericFunction):
+    type = String()
+    inherit_cache = True
+
+
+@compiles(library_fold, 'postgresql')
+def postgres_fold(element, compiler, **kwargs):
+    # Match the SQLite function for Vietnamese precomposed and combining accents.
+    accented = 'àáạảãâầấậẩẫăằắặẳẵèéẹẻẽêềếệểễìíịỉĩòóọỏõôồốộổỗơờớợởỡùúụủũưừứựửữỳýỵỷỹđ'
+    plain = ''.join(fold(char) for char in accented)
+    argument = compiler.process(list(element.clauses)[0], **kwargs)
+    source = compiler.render_literal_value(accented, String())
+    target = compiler.render_literal_value(plain, String())
+    combining = compiler.render_literal_value('[\u0300-\u036f]', String())
+    return f"regexp_replace(translate(lower({argument}), {source}, {target}), {combining}, '', 'g')"
 
 
 def install_catalog_search(app):

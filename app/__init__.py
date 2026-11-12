@@ -23,7 +23,6 @@ def create_app(config=None):
     app.config.update(SESSION_COOKIE_NAME='library_session', SESSION_COOKIE_HTTPONLY=True, SESSION_COOKIE_SAMESITE='Lax',
                       SESSION_COOKIE_SECURE=os.environ.get('COOKIE_SECURE') == '1',
                       WTF_CSRF_ENABLED=True)
-    app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///library.db'
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
     app.config['MAX_CONTENT_LENGTH'] = 32 * 1024 * 1024
     app.config['GOOGLE_CLIENT_ID'] = os.environ.get('GOOGLE_CLIENT_ID',
@@ -32,6 +31,8 @@ def create_app(config=None):
     if config:
         app.config.update(config)
 
+    from app.database import configure_database
+    configure_database(app)
     db.init_app(app)
     from app.performance import install_performance
     install_performance(app)
@@ -73,14 +74,24 @@ def create_app(config=None):
         return redirect(url_for('main.books'), code=303)
 
     with app.app_context():
-        db.create_all()
+        if db.engine.dialect.name == 'postgresql':
+            from sqlalchemy import text
+            with db.engine.begin() as connection:
+                # Serialize first startup across serverless instances.
+                connection.execute(text('SELECT pg_advisory_xact_lock(715730219)'))
+                db.metadata.create_all(bind=connection)
+        else:
+            db.create_all()
         from app.schema import upgrade_schema
         upgrade_schema(app)
         from app.models import User
         if not User.query.filter_by(role='admin').first():
-            setup_path = Path(app.instance_path) / 'setup-token'
-            if not setup_path.exists():
-                setup_path.write_text(secrets.token_urlsafe(32))
-            app.config['SETUP_TOKEN'] = setup_path.read_text().strip()
+            if os.environ.get('SETUP_TOKEN'):
+                app.config['SETUP_TOKEN'] = os.environ['SETUP_TOKEN']
+            else:
+                setup_path = Path(app.instance_path) / 'setup-token'
+                if not setup_path.exists():
+                    setup_path.write_text(secrets.token_urlsafe(32))
+                app.config['SETUP_TOKEN'] = setup_path.read_text().strip()
 
     return app
