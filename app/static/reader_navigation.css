@@ -21,3 +21,8 @@ html:has(.reader-navbar){scroll-padding-top:112px}
   .reader-navbar .reader-account-name small { display: none; }
   .reader-navbar .brand > span { font-size: 28px; }
 }
+
+.reader-app-footer {
+  margin-top: 24px;
+  text-align: center;
+}

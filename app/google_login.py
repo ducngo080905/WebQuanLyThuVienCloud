@@ -5,7 +5,7 @@ from sqlalchemy import func
 from sqlalchemy.exc import IntegrityError
 from app import db
 from app.models import User, Member, GoogleIdentity
-from app.auth import landing_url, registration_blocked, account_guard
+from app.auth import landing_url, registration_blocked, start_user_session
 
 google_auth = Blueprint('google_auth', __name__)
 
@@ -142,7 +142,4 @@ def sign_in():
         except IntegrityError:
             db.session.rollback()
             return fail('Tài khoản vừa được tạo hoặc liên kết. Vui lòng đăng nhập lại.')
-    session.clear()
-    session['user_id'] = user.id
-    session['account_guard'] = account_guard(user)
-    return redirect(landing_url(user), code=303)
+    return redirect(start_user_session(user), code=303)

@@ -54,7 +54,9 @@ def maintenance_gate():
     if request.endpoint in ('static','main.health'):return None
     enabled=maintenance_enabled();g.maintenance_enabled=enabled
     if not enabled or (g.get('user') and g.user.role=='admin'):return None
-    if request.endpoint in ('operations.status','operations.page','auth.login','auth.logout','google_auth.sign_in'):return None
+    if request.endpoint in ('operations.status','operations.page','auth.login','auth.logout','google_auth.sign_in',
+                            'mobile.session_info','mobile.login','mobile.logout','mobile.start_connection',
+                            'mobile.open_connection','mobile.confirm_connection','mobile.exchange_connection'):return None
     return maintenance_response()
 
 

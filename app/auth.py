@@ -38,7 +38,10 @@ def install_auth(app):
         from app.operations import maintenance_gate
         blocked=maintenance_gate()
         if blocked is not None:return blocked
-        if g.user and g.user.password_change_required and request.endpoint not in ('auth.profile','auth.logout','static','activity.heartbeat','messages.live','messages.phone','messages.read','operations.status','operations.page','operations.toggle'):
+        if g.user and g.user.password_change_required and (request.endpoint or '').startswith('mobile.') and request.endpoint not in ('mobile.logout', 'mobile.confirm_connection'):
+            from flask import jsonify
+            return jsonify(error='Hãy đổi mật khẩu tạm trên web rồi đăng nhập lại.'), 403
+        if g.user and g.user.password_change_required and request.endpoint not in ('auth.profile','auth.logout','static','activity.heartbeat','messages.live','messages.phone','messages.read','operations.status','operations.page','operations.toggle','mobile.logout','mobile.confirm_connection'):
             return redirect(url_for('auth.profile'))
         # An old login tab may be submitted after another tab has signed in.
         if g.user and request.endpoint == 'auth.login':
@@ -46,6 +49,9 @@ def install_auth(app):
         if request.method == 'POST' and app.config.get('WTF_CSRF_ENABLED', True):
             token = session.get('csrf_token', '')
             if not token or not secrets.compare_digest(token, request.form.get('csrf_token', '')):
+                if (request.endpoint or '').startswith('mobile.'):
+                    from flask import jsonify
+                    return jsonify(error='Phiên đăng nhập đã thay đổi. Vui lòng thử lại.'), 403
                 flash('Biểu mẫu đã cũ hoặc phiên làm việc đã thay đổi. Vui lòng thử lại trên trang vừa tải.', 'info')
                 safe_pages = {'auth.login': 'auth.login', 'auth.register': 'auth.register',
                               'auth.profile': 'auth.profile', 'auth.accounts': 'auth.accounts',
@@ -55,7 +61,7 @@ def install_auth(app):
                     target = url_for('auth.setup', token=request.args.get('token', ''))
                 return redirect(target, code=303)
         endpoint = request.endpoint or ''
-        if endpoint.startswith('main.') and endpoint not in ('main.health', 'main.book_cover'):
+        if endpoint.startswith('main.') and endpoint not in ('main.health', 'main.book_cover', 'main.download_android'):
             if not g.user:
                 if endpoint.startswith('main.api_'):
                     abort(401)
@@ -139,10 +145,7 @@ def login():
                 attempts = 0
             user = User.query.filter(func.lower(User.email) == email).first()
             if user and user.active and user.check_password(request.form.get('password', '')):
-                session.clear()
-                session['user_id'] = user.id
-                session['account_guard'] = account_guard(user)
-                return redirect(landing_url(user))
+                return redirect(start_user_session(user))
             session['login_attempts'] = attempts + 1
             session['login_until'] = (datetime.now() + timedelta(minutes=5)).timestamp()
             flash('Email hoặc mật khẩu không đúng, hoặc tài khoản đã bị khóa.', 'danger')
@@ -194,11 +197,9 @@ def account_form(mode):
                 db.session.rollback()
                 flash(str(error) if isinstance(error, ValueError) else 'Email đã được sử dụng.', 'danger')
             else:
-                session.clear()
-                session['user_id'] = user.id
-                session['account_guard'] = account_guard(user)
+                target = start_user_session(user)
                 flash('Tạo tài khoản thành công!', 'success')
-                return redirect(landing_url(user))
+                return redirect(target)
     return render_template('auth.html', mode=mode)
 
 
@@ -291,6 +292,17 @@ def accounts():
     return render_template('accounts.html', users=User.query.options(joinedload(User.member), joinedload(User.google_identity)).order_by(User.id).all(),
                            unlinked_members=Member.query.filter(~Member.account.has(),~Member.email.like('%@deleted.invalid')).all(),
                            registration_blocks=RegistrationBlock.query.order_by(RegistrationBlock.created_at.desc()).all())
+
+
+def start_user_session(user):
+    mobile_connection = session.get('mobile_connection')
+    session.clear()
+    session['user_id'] = user.id
+    session['account_guard'] = account_guard(user)
+    if mobile_connection:
+        session['mobile_connection'] = mobile_connection
+        return url_for('mobile.confirm_connection')
+    return landing_url(user)
 
 
 def landing_url(user):

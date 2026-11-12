@@ -103,6 +103,15 @@ class BorrowRequest(db.Model):
                               postgresql_where=db.text("status = 'pending'")),)
 
 
+class MobileConnection(db.Model):
+    __tablename__ = 'mobile_connections'
+    id = db.Column(db.String(64), primary_key=True)
+    proof_hash = db.Column(db.String(64), nullable=False)
+    expires_at = db.Column(db.DateTime, nullable=False, index=True)
+    user_id = db.Column(db.Integer)
+    account_guard = db.Column(db.String(64))
+
+
 class GoogleIdentity(db.Model):
     __tablename__ = 'google_identities'
     id = db.Column(db.Integer, primary_key=True)

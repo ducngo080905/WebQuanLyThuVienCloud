@@ -2,14 +2,15 @@ from flask import Flask
 import os
 import secrets
 from pathlib import Path
+from tempfile import gettempdir
 from flask_sqlalchemy import SQLAlchemy
 
 db = SQLAlchemy()
 
 def create_app(config=None):
     app = Flask(__name__)
-    if os.environ.get("VERCEL"):
-        app.instance_path = "/tmp/library-instance"
+    if os.environ.get('VERCEL') or os.environ.get('AWS_LAMBDA_FUNCTION_NAME'):
+        app.instance_path = str(Path(gettempdir()) / 'library-instance')
     Path(app.instance_path).mkdir(parents=True, exist_ok=True)
     secret_path = Path(app.instance_path) / 'session-secret'
     if not secret_path.exists():

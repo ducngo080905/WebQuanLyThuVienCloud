@@ -1,12 +1,27 @@
-from flask import Blueprint, render_template, request, jsonify, redirect, url_for, flash, g, abort, send_file
+from pathlib import Path
+
+from flask import Blueprint, current_app, render_template, request, jsonify, redirect, url_for, flash, g, abort, send_file
 from app import db
-from app.models import Book, Member, Issue, User, BookCover
+from app.models import Book, Member, Issue, User, BookCover, BookInfo
 from datetime import datetime
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy import func, case, distinct
 from sqlalchemy.orm import joinedload
 
 main = Blueprint('main', __name__)
+
+
+@main.get('/download/android')
+def download_android():
+    apk = (Path(current_app.root_path).parent / 'UngDungThuVien' / 'app' /
+           'build' / 'outputs' / 'apk' / 'debug' / 'app-debug.apk')
+    if not apk.is_file():
+        return 'Bản cài Android hiện chưa có trên máy chủ. Vui lòng thử lại sau.', 503, {
+            'Content-Type': 'text/plain; charset=utf-8',
+        }
+    return send_file(apk, mimetype='application/vnd.android.package-archive',
+                     as_attachment=True, download_name='ThuVien-Android.apk', max_age=0)
+
 
 @main.app_context_processor
 def interface_stats():
@@ -61,6 +76,8 @@ def books():
 @main.route('/books/add', methods=['POST'])
 def add_book():
     from app.covers import read_cover
+    from app.features import read_samples
+    from app.models import SamplePage
     import secrets
     data = request.form
     try:
@@ -70,12 +87,27 @@ def add_book():
         title, author, isbn = (data.get(key, '').strip() for key in ('title','author','isbn'))
         if not title or not author or not isbn or len(title)>200 or len(author)>100 or len(isbn)>20:
             raise ValueError('Nhập đầy đủ tên sách, tác giả và ISBN hợp lệ.')
+        description = data.get('description', '').strip()
+        if len(description) > 20000:
+            raise ValueError('Giới thiệu sách vượt quá độ dài cho phép.')
+        metadata = {field: data.get(field, '').strip() for field in ('publisher', 'language', 'shelf')}
+        if any(len(metadata[field]) > limit for field, limit in [('publisher', 150), ('language', 50), ('shelf', 60)]):
+            raise ValueError('Thông tin xuất bản vượt quá độ dài cho phép.')
+        year = int(data['year']) if data.get('year') else None
+        pages = int(data['pages']) if data.get('pages') else None
+        if (year is not None and not 1 <= year <= datetime.now().year + 1) or (pages is not None and not 1 <= pages <= 100000):
+            raise ValueError('Năm xuất bản hoặc số trang không hợp lệ.')
         image = read_cover(request.files.get('cover'))
+        samples = read_samples(request.files.getlist('samples'))
     except ValueError as error:
         flash(str(error), 'danger')
         return redirect(url_for('main.books'))
     book = Book(title=title, author=author, isbn=isbn, genre=data.get('genre',''),
                 quantity=quantity, available=quantity)
+    if description or any(metadata.values()) or year is not None or pages is not None:
+        book.info = BookInfo(description=description, year=year, pages=pages, **metadata)
+    for position, (content, mimetype, count) in enumerate(samples, 1):
+        book.sample_pages.append(SamplePage(position=position, data=content, mimetype=mimetype, page_count=count))
     if image:
         book.cover = BookCover(data=image, version=secrets.token_hex(8))
     db.session.add(book)
@@ -259,9 +291,14 @@ def return_book(issue_id):
     if return_date.date() < issue.issue_date.date():
         flash('Ngày trả không được trước ngày mượn.', 'danger')
         return redirect(url_for('main.issues'))
-    issue.status      = 'returned'
-    issue.return_date = return_date
-    issue.book.available += 1
+    changed = Issue.query.filter_by(id=issue_id, status='issued').update(
+        {Issue.status: 'returned', Issue.return_date: return_date}, synchronize_session=False)
+    if not changed:
+        db.session.rollback()
+        flash('Phiếu mượn này đã được trả sách.', 'info')
+        return redirect(url_for('main.issues'))
+    Book.query.filter_by(id=issue.book_id).update(
+        {Book.available: Book.available + 1}, synchronize_session=False)
     db.session.commit()
     flash('Trả sách thành công!', 'success')
     return redirect(url_for('main.issues'))
