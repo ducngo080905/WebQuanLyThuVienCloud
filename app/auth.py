@@ -38,10 +38,7 @@ def install_auth(app):
         from app.operations import maintenance_gate
         blocked=maintenance_gate()
         if blocked is not None:return blocked
-        if g.user and g.user.password_change_required and (request.endpoint or '').startswith('mobile.') and request.endpoint not in ('mobile.logout', 'mobile.confirm_connection'):
-            from flask import jsonify
-            return jsonify(error='Hãy đổi mật khẩu tạm trên web rồi đăng nhập lại.'), 403
-        if g.user and g.user.password_change_required and request.endpoint not in ('auth.profile','auth.logout','static','activity.heartbeat','messages.live','messages.phone','messages.read','operations.status','operations.page','operations.toggle','mobile.logout','mobile.confirm_connection'):
+        if g.user and g.user.password_change_required and request.endpoint not in ('auth.profile','auth.logout','static','activity.heartbeat','messages.live','messages.phone','messages.read','operations.status','operations.page','operations.toggle'):
             return redirect(url_for('auth.profile'))
         # An old login tab may be submitted after another tab has signed in.
         if g.user and request.endpoint == 'auth.login':
@@ -49,9 +46,6 @@ def install_auth(app):
         if request.method == 'POST' and app.config.get('WTF_CSRF_ENABLED', True):
             token = session.get('csrf_token', '')
             if not token or not secrets.compare_digest(token, request.form.get('csrf_token', '')):
-                if (request.endpoint or '').startswith('mobile.'):
-                    from flask import jsonify
-                    return jsonify(error='Phiên đăng nhập đã thay đổi. Vui lòng thử lại.'), 403
                 flash('Biểu mẫu đã cũ hoặc phiên làm việc đã thay đổi. Vui lòng thử lại trên trang vừa tải.', 'info')
                 safe_pages = {'auth.login': 'auth.login', 'auth.register': 'auth.register',
                               'auth.profile': 'auth.profile', 'auth.accounts': 'auth.accounts',
@@ -61,7 +55,7 @@ def install_auth(app):
                     target = url_for('auth.setup', token=request.args.get('token', ''))
                 return redirect(target, code=303)
         endpoint = request.endpoint or ''
-        if endpoint.startswith('main.') and endpoint not in ('main.health', 'main.book_cover', 'main.download_android'):
+        if endpoint.startswith('main.') and endpoint not in ('main.health', 'main.book_cover'):
             if not g.user:
                 if endpoint.startswith('main.api_'):
                     abort(401)
@@ -295,13 +289,9 @@ def accounts():
 
 
 def start_user_session(user):
-    mobile_connection = session.get('mobile_connection')
     session.clear()
     session['user_id'] = user.id
     session['account_guard'] = account_guard(user)
-    if mobile_connection:
-        session['mobile_connection'] = mobile_connection
-        return url_for('mobile.confirm_connection')
     return landing_url(user)
 
 

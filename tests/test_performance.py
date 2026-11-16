@@ -94,6 +94,19 @@ def test_fonts_are_local_and_content_addressed(performance_app):
         assert 'immutable' in response.headers['Cache-Control']
 
 
+def test_navigation_icons_render_without_waiting_for_a_font(performance_app):
+    app, client = performance_app
+    for path in ('/admin', '/'):
+        page = client.get(path).text
+        shell = page.split('<main class="main">')[0]
+        # Critical navigation must carry its own drawing in the HTML, even on
+        # a first visit where the icon font has not reached the browser yet.
+        icons = re.findall(r'<span class="material-symbols-outlined shell-icon[^>]*>(.*?)</span>', shell, re.S)
+        assert len(icons) >= (15 if path == '/admin' else 5)
+        assert all('<svg ' in icon and '<path ' in icon for icon in icons)
+        assert '>local_library</span>' not in shell
+
+
 def test_statistics_use_sql_counts_and_keep_overdue_correct(performance_app):
     app, client = performance_app
     book = Book(title='Statistics Book', author='Author', isbn='stats', quantity=2, available=1)

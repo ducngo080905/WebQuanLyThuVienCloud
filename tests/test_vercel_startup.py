@@ -22,4 +22,5 @@ def test_serverless_startup_writes_only_to_temp(monkeypatch, tmp_path, runtime_f
     client = application.test_client()
     assert client.get('/health').status_code == 200
     assert client.get('/').status_code == 200
-    assert client.get('/api/mobile/session').status_code == 200
+    assert client.get('/api/mobile/session').status_code == 404
+    assert client.get('/download/android').status_code == 404

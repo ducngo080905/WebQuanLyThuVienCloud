@@ -1,6 +1,13 @@
 # Bàn giao dự án Thư viện
 
-Cập nhật: 06/11/2026 (giờ Việt Nam).
+Cập nhật: 16/11/2026.
+
+## Trạng thái hiện tại
+
+- Chỉ duy trì website; dự án Android, API riêng cho app và nút tải APK đã được gỡ theo yêu cầu. Bản nén dự phòng nằm trong `instance/archives/`, không được đưa lên Git hoặc hosting.
+- Local chạy SQLite ở cổng 5000. Vercel dùng Neon PostgreSQL qua `DATABASE_URL`; dữ liệu hai môi trường không tự đồng bộ nếu local chưa cấu hình cùng database.
+- Thanh điều hướng dùng SVG để tránh font icon làm vỡ bố cục khi chuyển trang. Không bật lại hiệu ứng chụp khung hình cả trang; chuyển động nhẹ chỉ áp dụng menu, chat và hộp thoại.
+- Các mục bên dưới có phần lịch sử; xác minh với code và test trước khi áp dụng.
 
 ## Bắt đầu cho chat/tài khoản mới
 

@@ -1,6 +1,4 @@
-from pathlib import Path
-
-from flask import Blueprint, current_app, render_template, request, jsonify, redirect, url_for, flash, g, abort, send_file
+from flask import Blueprint, render_template, request, jsonify, redirect, url_for, flash, g, abort, send_file
 from app import db
 from app.models import Book, Member, Issue, User, BookCover, BookInfo
 from datetime import datetime
@@ -9,18 +7,6 @@ from sqlalchemy import func, case, distinct
 from sqlalchemy.orm import joinedload
 
 main = Blueprint('main', __name__)
-
-
-@main.get('/download/android')
-def download_android():
-    apk = (Path(current_app.root_path).parent / 'UngDungThuVien' / 'app' /
-           'build' / 'outputs' / 'apk' / 'debug' / 'app-debug.apk')
-    if not apk.is_file():
-        return 'Bản cài Android hiện chưa có trên máy chủ. Vui lòng thử lại sau.', 503, {
-            'Content-Type': 'text/plain; charset=utf-8',
-        }
-    return send_file(apk, mimetype='application/vnd.android.package-archive',
-                     as_attachment=True, download_name='ThuVien-Android.apk', max_age=0)
 
 
 @main.app_context_processor

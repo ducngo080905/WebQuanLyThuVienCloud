@@ -530,5 +530,5 @@ Các thay đổi làm giao diện mượt hơn sẽ được giữ riêng trên 
 - Bảo trì chặn các yêu cầu mới của người dùng/thủ thư ở server với HTTP 503; admin vẫn truy cập để điều khiển. Tab đang mở kiểm tra mỗi giây và tự chuyển sang trang bảo trì, tự quay lại khi mở web. Tab nền có thể bị trình duyệt giới hạn; không thể hủy thao tác đã hoàn tất trước thời điểm bật.
 - Web kiểm tra phiên bản, hiện **Cập nhật / Để sau**, không tự tải lại làm mất thao tác. Lần đầu triển khai chức năng này, các tab cũ phải tải lại một lần.
 - Mỗi phiên bản production đặt `APP_VERSION` bằng ID release/commit; local tự tính từ code. Giữ SECRET_KEY và dữ liệu bền vững khi đổi release.
-- Xem [hướng dẫn Vercel/Neon, chuyển SQLite, staging và bảo trì](deploy/README.md). Production dùng PostgreSQL qua `DATABASE_URL`; local vẫn dùng SQLite nếu không cấu hình database ngoài.
+- Xem [hướng dẫn Vercel/Neon, chuyển SQLite, staging và bảo trì](deploy/README.md), hoặc [đưa lên Botkeep Free](deploy/BOTKEEP.md). Production dùng PostgreSQL qua `DATABASE_URL`; local vẫn dùng SQLite nếu không cấu hình database ngoài.
 - Kiểm tra: `python -m pytest tests/test_operations.py -q` và `node --test tests/operations.test.cjs`.

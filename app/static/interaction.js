@@ -15,12 +15,14 @@
     const ids = form.dataset.refresh.split(/\s+/);
     const modal = form.closest('.modal-overlay.open');
     const values = new FormData(form, button || undefined);
-    const body = form.enctype === 'multipart/form-data' ? values : new URLSearchParams(values);
+    const body = form.getAttribute('enctype') === 'multipart/form-data' ? values : new URLSearchParams(values);
     refreshing = true;
     form.setAttribute('aria-busy', 'true');
     if (button) button.disabled = true;
     try {
-      const response = await fetch(form.action, {
+      // Named controls (e.g. two buttons named "action") shadow form.action.
+      const target = button?.getAttribute('formaction') ?? form.getAttribute('action') ?? location.href;
+      const response = await fetch(target || location.href, {
         method: 'POST', body, cache: 'no-store',
         headers: {'X-Library-Page': location.pathname + location.search},
       });
@@ -98,9 +100,10 @@
     if (state.button) state.button.removeAttribute('aria-disabled');
     pending.delete(form);
   }
+  window.addEventListener('pageshow', () => { for (const form of pending.keys()) reset(form); });
   document.addEventListener('submit', event => {
     const form = event.target;
-    if (!(form instanceof HTMLFormElement) || form.method.toLowerCase() !== 'post') return;
+    if (!(form instanceof HTMLFormElement) || (form.getAttribute('method') || 'get').toLowerCase() !== 'post') return;
     if (event.defaultPrevented) return;
     if (form.dataset?.refresh) {
       event.preventDefault();
@@ -116,7 +119,6 @@
       pending.set(form, {button:event.submitter,timer:setTimeout(() => reset(form),30000)});
     });
   });
-  window.addEventListener('pageshow', () => { for (const form of pending.keys()) reset(form); });
   // Preserve the sidebar's scroll position between full navigations.
   const nav = document.querySelector('.sidebar .nav');
   if (nav) {

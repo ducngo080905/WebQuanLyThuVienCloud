@@ -2,7 +2,7 @@
   const form=document.getElementById('discoveryFilters'),results=document.getElementById('discoveryResults'),status=document.getElementById('discoveryStatus');
   if(!form||!window.fetch||!window.AbortController)return;
   let timer,controller,version=0;
-  function formUrl(){const url=new URL(form.action,location.href);for(const [key,value] of new FormData(form)){if(value && !(key==='sort'&&value==='newest'))url.searchParams.set(key,value);}return url;}
+  function formUrl(){const url=new URL(form.getAttribute('action')||location.href,location.href);for(const [key,value] of new FormData(form)){if(value && !(key==='sort'&&value==='newest'))url.searchParams.set(key,value);}return url;}
   function syncForm(url){form.elements.q.value=url.searchParams.get('q')||'';form.elements.genre.value=url.searchParams.get('genre')||'';form.elements.sort.value=url.searchParams.get('sort')||'newest';for(const radio of form.elements.availability)radio.checked=radio.value===(url.searchParams.get('availability')||'');}
   async function load(url,{push=false,pagination=false}={}){
     clearTimeout(timer);controller?.abort();controller=new AbortController();const current=++version;

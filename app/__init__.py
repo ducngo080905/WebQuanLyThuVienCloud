@@ -62,8 +62,6 @@ def create_app(config=None):
     install_messages(app)
     from app.chat import chat
     app.register_blueprint(chat)
-    from app.mobile import mobile
-    app.register_blueprint(mobile)
 
     @app.errorhandler(413)
     def upload_too_large(error):
