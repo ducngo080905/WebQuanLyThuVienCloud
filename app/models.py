@@ -35,6 +35,10 @@ class Member(db.Model):
     joined_at = db.Column(db.DateTime, default=datetime.utcnow)
     issues = db.relationship('Issue', backref='member', lazy=True)
 
+    @property
+    def library_code(self):
+        return f'DG-{self.id:03d}'
+
     def to_dict(self):
         return {
             'id': self.id,
@@ -84,6 +88,73 @@ class User(db.Model):
     def check_password(self, password):
         from werkzeug.security import check_password_hash
         return bool(self.password_hash) and check_password_hash(self.password_hash, password)
+
+
+class LibraryQRPass(db.Model):
+    __tablename__ = 'library_qr_passes'
+    id = db.Column(db.Integer, primary_key=True)
+    member_id = db.Column(db.Integer, db.ForeignKey('members.id'), unique=True)
+    issue_id = db.Column(db.Integer, db.ForeignKey('issues.id'), unique=True)
+    nonce = db.Column(db.String(64), nullable=False)
+    member = db.relationship('Member', backref=db.backref('qr_pass', uselist=False, cascade='all, delete-orphan'))
+    issue = db.relationship('Issue', backref=db.backref('qr_pass', uselist=False, cascade='all, delete-orphan'))
+
+
+class BookReservation(db.Model):
+    __tablename__ = 'book_reservations'
+    id = db.Column(db.Integer, primary_key=True)
+    book_id = db.Column(db.Integer, db.ForeignKey('books.id'), nullable=False, index=True)
+    member_id = db.Column(db.Integer, db.ForeignKey('members.id'), nullable=False, index=True)
+    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    status = db.Column(db.String(20), nullable=False, default='waiting')
+    book = db.relationship('Book', backref=db.backref('reservations', cascade='all, delete-orphan'))
+    member = db.relationship('Member', backref=db.backref('reservations', cascade='all, delete-orphan'))
+    __table_args__ = (db.Index('uq_waiting_reservation', 'book_id', 'member_id', unique=True,
+                              sqlite_where=db.text("status = 'waiting'"),
+                              postgresql_where=db.text("status = 'waiting'")),)
+
+
+class CirculationConfig(db.Model):
+    __tablename__ = 'circulation_config'
+    key = db.Column(db.String(50), primary_key=True)
+    value = db.Column(db.String(200), nullable=False, default='')
+
+
+class ReturnReceipt(db.Model):
+    __tablename__ = 'return_receipts'
+    issue_id = db.Column(db.Integer, db.ForeignKey('issues.id'), primary_key=True)
+    method = db.Column(db.String(20), nullable=False)
+    confirmed_by = db.Column(db.Integer, db.ForeignKey('users.id'))
+    confirmed_name = db.Column(db.String(100), nullable=False)
+    confirmed_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    amount = db.Column(db.Integer, nullable=False, default=0)
+    paid = db.Column(db.Boolean, nullable=False, default=False)
+    paid_at = db.Column(db.DateTime)
+    issue = db.relationship('Issue', backref=db.backref('return_receipt', uselist=False, cascade='all, delete-orphan'))
+    confirmer = db.relationship('User', backref='return_receipts')
+
+
+class ContactRequest(db.Model):
+    __tablename__ = 'contact_requests'
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False, index=True)
+    subject = db.Column(db.String(160), nullable=False)
+    status = db.Column(db.String(20), nullable=False, default='waiting')
+    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow, index=True)
+    user = db.relationship('User', backref=db.backref('contact_requests', cascade='all, delete-orphan'))
+
+
+class ContactReply(db.Model):
+    __tablename__ = 'contact_replies'
+    id = db.Column(db.Integer, primary_key=True)
+    request_id = db.Column(db.Integer, db.ForeignKey('contact_requests.id'), nullable=False, index=True)
+    sender_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
+    body = db.Column(db.Text, nullable=False)
+    from_admin = db.Column(db.Boolean, nullable=False, default=False)
+    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    request = db.relationship('ContactRequest', backref=db.backref('replies', cascade='all, delete-orphan', lazy='dynamic'))
+    sender = db.relationship('User', backref=db.backref('contact_replies', passive_deletes=False))
 
 
 class BorrowRequest(db.Model):
@@ -298,6 +369,8 @@ class DueReminder(db.Model):
     __table_args__ = (db.UniqueConstraint('user_id', 'issue_id', 'due_date'),)
 
 
+# Legacy chat mappings remain only for existing database compatibility and
+# account deletion cascades. Messaging has no registered routes or frontend.
 class ChatThread(db.Model):
     __tablename__ = 'chat_threads'
     id = db.Column(db.Integer, primary_key=True)

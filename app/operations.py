@@ -39,7 +39,7 @@ def write_setting(key, value):
 
 
 def maintenance_response():
-    if request.method!='GET' or request.path.startswith(('/chat/api/','/api/')) or request.accept_mimetypes.best=='application/json':
+    if request.method!='GET' or request.path.startswith('/api/') or request.accept_mimetypes.best=='application/json':
         response=jsonify(error='Thư viện đang bảo trì. Vui lòng quay lại sau.',maintenance=True)
         response.status_code=503
     else:

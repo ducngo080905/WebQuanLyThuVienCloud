@@ -20,7 +20,7 @@ def install_messages(app):
     @app.before_request
     def require_contact_for_transactions():
         if (g.get('user') and g.user.role!='admin' and not valid_phone(g.user.member.phone) and request.method=='POST'
-            and request.endpoint in ('auth.request_book','features.request_renewal')):
+            and request.endpoint in ('auth.request_book','circulation.quick','features.request_renewal')):
             return jsonify(error='Vui lòng bổ sung số điện thoại trước khi mượn sách.',phone_required=True),428
 
 

@@ -1,0 +1,6 @@
+{% if current_user and current_user.role=='reader' %}
+  {% if book.id in active_books %}<a class="btn" href="{{ url_for('circulation.home') }}">Đang mượn · Xem QR trả sách</a>
+  {% elif book.available>0 %}<form action="{{ url_for('circulation.quick',book_id=book.id) }}" method="post" data-refresh="catalogBook{{ book.id }}" data-feedback-ms="5000"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><button class="btn btn-primary" type="submit">Mượn nhanh</button></form><p class="hint">Lập phiếu ngay · Ưu tiên hàng đợi đặt chỗ.</p>
+  {% else %}<a class="btn" href="{{ url_for('features.detail',book_id=book.id) }}">Đặt chỗ vào hàng đợi</a>{% endif %}
+{% elif not current_user %}<a class="btn btn-primary" href="/login">Đăng nhập để mượn</a>
+{% else %}<a class="btn" href="{{ url_for('main.issues') }}">Lập phiếu mượn</a>{% endif %}

@@ -1,0 +1,16 @@
+{% extends 'base.html' %}
+{% block title %}{{ item.subject }} – Liên hệ thư viện{% endblock %}
+{% block page_styles %}<link rel="stylesheet" href="{{ url_for('static', filename='contact.css') }}">{% endblock %}
+{% block content %}
+<div class="contact-page contact-thread-page">
+  <a class="contact-back" href="{{ url_for('contact.admin') if current_user.role=='admin' else url_for('contact.index') }}">← {{ 'Hộp thư hỗ trợ' if current_user.role=='admin' else 'Liên hệ admin' }}</a>
+  <header class="contact-heading"><span class="eyebrow">Yêu cầu #{{ item.id }}</span><h1>{{ item.subject }}</h1><p>{{ item.user.member.name }} · Gửi {{ item.created_at|contact_time }}</p></header>
+  <section class="contact-card" id="contactConversation">
+    <div class="contact-section-heading"><span class="contact-status contact-status-{{ item.status }}">{{ statuses[item.status] }}</span><div class="contact-thread-actions"><a class="contact-refresh" href="{{ url_for('contact.detail', request_id=item.id) }}">Làm mới</a><form method="post" data-refresh="contactConversation" data-feedback-ms="3000" action="{{ url_for('contact.status', request_id=item.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><input type="hidden" name="status" value="{{ 'waiting' if item.status=='closed' else 'closed' }}"><button class="btn btn-sm" type="submit">{{ 'Mở lại yêu cầu' if item.status=='closed' else 'Đánh dấu đã giải quyết' }}</button></form></div></div>
+    {% if replies.has_next %}<a class="contact-history" href="{{ url_for('contact.detail', request_id=item.id, page=replies.next_num) }}">← Xem trao đổi cũ hơn</a>{% endif %}
+    <div class="contact-replies">{% for reply in replies.items|reverse %}<article class="contact-reply {{ 'contact-reply-admin' if reply.from_admin else '' }}"><div class="contact-reply-heading"><span class="contact-avatar" aria-hidden="true">{{ 'TV' if reply.from_admin else item.user.member.name[:1]|upper }}</span><div><strong>{{ 'Quản trị viên' if reply.from_admin else item.user.member.name }}</strong><time datetime="{{ reply.created_at.isoformat() }}Z">{{ reply.created_at|contact_time }}</time></div>{% if reply.from_admin %}<span class="contact-admin-label">Hỗ trợ thư viện</span>{% endif %}</div><p>{{ reply.body }}</p></article>{% endfor %}</div>
+    {% if replies.has_prev %}<a class="contact-history" href="{{ url_for('contact.detail', request_id=item.id, page=replies.prev_num) }}">Xem trao đổi mới hơn →</a>{% endif %}
+    {% if item.status=='closed' %}<p class="contact-closed">Yêu cầu đã được giải quyết. Bạn có thể mở lại nếu cần trao đổi thêm.</p>{% else %}<form class="contact-form contact-reply-form" method="post" data-refresh="contactConversation" data-feedback-ms="3000" action="{{ url_for('contact.detail', request_id=item.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><label for="replyBody">{{ 'Trả lời độc giả' if current_user.role=='admin' else 'Trao đổi thêm với admin' }}</label><textarea id="replyBody" name="body" required maxlength="5000" rows="4" placeholder="Nhập nội dung phản hồi…"></textarea><div class="contact-compose-footer"><small class="contact-muted">Trao đổi riêng tư · Tối đa 5.000 ký tự</small><button type="submit" class="btn btn-primary">Gửi phản hồi ↗</button></div></form>{% endif %}
+  </section>
+</div>
+{% endblock %}

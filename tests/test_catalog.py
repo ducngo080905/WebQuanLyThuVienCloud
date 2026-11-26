@@ -55,7 +55,7 @@ def test_partial_response_has_no_shell_and_retains_correct_borrow_permissions(ca
     response=catalog_client.get('/catalog?partial=1')
     assert response.status_code==200 and response.headers['Cache-Control']=='no-store'
     assert '<html' not in response.text and 'discovery-results-heading' in response.text
-    assert 'Đăng nhập để mượn' in response.text and 'action="/borrow/request/' not in response.text
+    assert 'Đăng nhập để mượn' in response.text and 'action="/borrow/quick/' not in response.text
     assert '<script' not in response.text
 
 
@@ -72,8 +72,8 @@ def test_reader_borrow_forms_remain_independent_and_keep_loan_state(catalog_clie
     with catalog_client.session_transaction() as session:
         session['user_id']=user.id;session['account_guard']=account_guard(user)
     page=catalog_client.get('/catalog').text
-    assert 'Bạn đang mượn sách này' in page and 'Đã gửi · Xem yêu cầu' in page
-    assert 'action="/borrow/request/' in page
+    assert 'Đang mượn · Xem QR trả sách' in page and 'Mượn nhanh' in page
+    assert 'action="/borrow/quick/' in page
     class Forms(HTMLParser):
         depth=0
         def handle_starttag(self,tag,attrs):

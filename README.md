@@ -462,42 +462,11 @@ Người dùng nhận ô nhỏ góc phải dưới, tự ẩn sau 7 giây, khôn
 không tự đánh dấu đã đọc chỉ vì hết thời gian. Nội dung vẫn xem lại ở `/inbox`.
 
 
-### Tin nhắn trên web
+### Tin nhắn
 
-- Mở `/messenger` hoặc chọn **Tin nhắn**. Chọn nút soạn để tìm người nhận theo tên/vai trò.
-- Chat riêng giữa hai tài khoản: văn bản, emoji, tìm cuộc trò chuyện, tải lịch sử cũ, trạng thái online/đang nhập/đã xem.
-- Tin nhắn cập nhật khoảng 2,5 giây khi mở khung chat; số tin chưa đọc trên menu cập nhật khoảng 10 giây ở trang khác.
-- Enter gửi tin; Shift + Enter xuống dòng. Bản nháp được giữ trong phiên của tab trình duyệt, tin đã gửi lưu trong SQLite (`chat_threads`, `chat_messages`).
-- Mỗi tin tối đa 4.000 ký tự, giới hạn 60 tin/phút/tài khoản. Chỉ hai thành viên cuộc trò chuyện được truy cập nội dung qua API. Danh bạ chat chỉ hiển thị tên/vai trò/trạng thái, không cung cấp email, điện thoại hoặc IP.
-- Hỗ trợ văn bản, emoji, ảnh JPG/PNG/WebP (tối đa 5 MB), PDF/TXT UTF-8 (tối đa 10 MB), trả lời tin nhắn, 6 cảm xúc, chỉnh sửa trong 15 phút và thu hồi với mọi người. Tìm nội dung trong cuộc trò chuyện bằng nút kính lúp. Chưa có cuộc gọi hoặc chat nhóm. Khi xóa tài khoản, các cuộc trò chuyện liên quan cũng được xóa.
-
-- Ảnh đính kèm được chuẩn hóa JPEG trước khi lưu; ảnh/tệp chỉ tải được bởi hai người trong cuộc trò chuyện. Thu hồi xóa nội dung và tệp khỏi cuộc trò chuyện hiện tại; trích dẫn đổi thành “Tin nhắn đã thu hồi”. Tệp người nhận đã tải về trước đó vẫn có thể tồn tại trên máy của họ.
-- Chỉnh sửa, thu hồi và cảm xúc đồng bộ qua `chat_changes`; không cần tải lại trang. Nâng cấp tự thêm cột vào bảng chat cũ và sao lưu SQLite trước khi thay đổi, giữ lịch sử hiện có.
-
-
-### Quyền riêng tư và liên hệ chat
-
-- User/thủ thư chỉ thấy bạn bè đã thêm, không thấy danh bạ toàn website. Thêm bạn bằng đúng email đã đăng ký; không gợi ý theo email một phần. Email chưa có tài khoản sẽ được báo rõ. Việc thêm tạo liên hệ cho cả hai người, chưa có bước duyệt lời mời.
-- Admin giữ danh sách toàn bộ tài khoản và có thể bắt đầu chat. Khi admin mở chat, người nhận có thể trả lời. Chặn chat vẫn áp dụng cho cả admin; không ảnh hưởng các thông báo quản trị khác.
-- Menu ba chấm trên đầu chat có Chặn/Bỏ chặn và Xóa liên hệ và chat. Chặn ngăn gửi tin, sửa tin, cảm xúc, trạng thái đang nhập ở cả hai phía. Vẫn có thể xem lịch sử và thu hồi tin của mình. Danh sách đã chặn ở cột trái cho phép bỏ chặn.
-- Xóa liên hệ gỡ bạn bè ở hai bên, ẩn cuộc trò chuyện và xóa quyền xem lịch sử cũ ở phía người xóa. Người kia giữ lịch sử của họ. Muốn nhắn lại, user cần thêm bằng email; việc thêm lại không khôi phục lịch sử đã xóa ở phía mình. Không xóa tài khoản website.
-- Ảnh đại diện được tải lên tại Hồ sơ cá nhân: JPG/PNG/WebP tối đa 5 MB, lưu JPEG vuông 256×256. User chỉ xem avatar của mình, bạn bè hoặc người có cuộc trò chuyện cùng; admin xem được toàn bộ.
-
-### Chụp ảnh để gửi trong chat
-
-Bấm biểu tượng **camera** cạnh ô nhập tin nhắn. Cho phép camera trong trình duyệt, chụp ảnh rồi chọn **Dùng ảnh này**. Ảnh xuất hiện trong bản nháp; bấm **Gửi** để gửi. Có nút đổi camera, chụp lại và chọn ảnh từ thiết bị. Camera tự tắt khi chụp xong, đóng hộp thoại hoặc rời tab. Tính năng dùng camera cần HTTPS hoặc `localhost`/`127.0.0.1`; trên điện thoại có thể chọn ảnh/chụp bằng nút chọn ảnh từ thiết bị nếu trình duyệt hỗ trợ.
-
-### Chat nổi trên trang người dùng
-
-Tài khoản độc giả/thủ thư có biểu tượng chat ở góc dưới bên phải thay cho mục Tin nhắn trên menu. Bấm để mở khung chat gọn; nút dấu trừ thu nhỏ, nút mở rộng chuyển đến trang chat đầy đủ. Số tin chưa đọc hiển thị màu đỏ. Khung nhớ cuộc trò chuyện/bản nháp và trạng thái mở trong phiên trình duyệt; khi thu nhỏ sẽ tắt camera, tạm dừng tải và đánh dấu đã đọc. Admin tiếp tục dùng trang chat hiện có.
-
-### Chat nhóm
-
-- Bấm biểu tượng **Tạo nhóm** (người kèm dấu cộng) cạnh nút soạn tin. Đặt tên và chọn ít nhất 1 người khác; nhóm tối đa 50 thành viên. User chỉ mời bạn bè đã thêm, admin được chọn toàn bộ tài khoản hoạt động.
-- Nhóm dùng chung gửi tin/ảnh/tệp, camera, trả lời, cảm xúc, sửa/thu hồi, tìm kiếm, đang nhập và số người đã xem. Chọn menu ba chấm → **Thông tin & thành viên nhóm** để quản lý.
-- Trưởng nhóm được đổi tên, thêm/xóa thành viên và chuyển quyền. Cần chuyển quyền trước khi rời nếu còn thành viên khác. Người mới hoặc được mời lại chỉ đọc tin từ lần tham gia gần nhất; người đã rời/bị xóa không còn đọc hoặc tải tệp nhóm.
-- Không thể mời các tài khoản có quan hệ chặn vào cùng nhóm. Nếu chặn sau khi đã ở chung nhóm, người có quan hệ chặn không gửi/sửa/thả cảm xúc được cho đến khi bỏ chặn hoặc rời nhóm; vẫn có thể thu hồi tin của mình.
-- Database được sao lưu trước khi nâng cấp cấu trúc chat riêng để dùng chung cho nhóm. Lịch sử và tệp chat riêng giữ nguyên. Xóa tài khoản không xóa nhóm; nhóm tự chuyển quyền nếu trưởng nhóm bị xóa, tin cũ hiển thị “Thành viên đã xóa”.
+Chức năng tin nhắn đã được gỡ khỏi web, bao gồm chat riêng/nhóm, tệp đính kèm và kiểm tra tin mới.
+Thông báo quản trị, nhắc hạn trả sách và ảnh đại diện trong hồ sơ vẫn hoạt động.
+Các bảng tin nhắn cũ được giữ để tương thích dữ liệu; không còn API truy cập chat.
 
 ### Đăng ký có xác nhận và liên kết Google
 
@@ -518,10 +487,10 @@ Các thay đổi làm giao diện mượt hơn sẽ được giữ riêng trên 
 
 - Font Inter và Material Symbols được phục vụ trong `app/static/fonts/`, kèm giấy phép; giao diện không cần kết nối Google Fonts khi mở trang.
 - CSS/JS có mã phiên bản theo nội dung và được trình duyệt dùng lại. Sau khi sửa code, khởi động lại ứng dụng để cập nhật mã phiên bản; không cần xóa cache mỗi lần.
-- HTML tài khoản vẫn dùng `Cache-Control: no-store`. Tài nguyên công khai được cache riêng; quyền xem ảnh/tệp chat không thay đổi.
+- HTML tài khoản vẫn dùng `Cache-Control: no-store`. Tài nguyên công khai được cache riêng; ảnh đại diện chỉ dành cho chính tài khoản đó và quản trị viên.
 - Phản hồi HTML/JSON lớn được nén gzip nếu trình duyệt hỗ trợ. Thống kê dùng SQL tổng hợp; danh sách sách và khoản mượn tải các dữ liệu liên quan cùng lượt thay vì truy vấn theo từng dòng.
 - Biểu mẫu POST thông thường hiện trạng thái đang gửi và ngăn bấm gửi lặp. Các trang và hộp thoại mở trực tiếp, không dùng hiệu ứng chuyển cảnh.
-- Kiểm tra hồi quy hiệu năng: `python -m pytest tests/test_performance.py -q`; kiểm tra gửi biểu mẫu/camera: `node --test tests/interaction.test.cjs tests/chat_camera.test.cjs`.
+- Kiểm tra hồi quy hiệu năng: `python -m pytest tests/test_performance.py -q`; kiểm tra gửi biểu mẫu: `node --test tests/interaction.test.cjs`.
 
 
 ### Bảo trì và phát hành phiên bản
@@ -532,3 +501,49 @@ Các thay đổi làm giao diện mượt hơn sẽ được giữ riêng trên 
 - Mỗi phiên bản production đặt `APP_VERSION` bằng ID release/commit; local tự tính từ code. Giữ SECRET_KEY và dữ liệu bền vững khi đổi release.
 - Xem [hướng dẫn Vercel/Neon, chuyển SQLite, staging và bảo trì](deploy/README.md), hoặc [đưa lên Botkeep Free](deploy/BOTKEEP.md). Production dùng PostgreSQL qua `DATABASE_URL`; local vẫn dùng SQLite nếu không cấu hình database ngoài.
 - Kiểm tra: `python -m pytest tests/test_operations.py -q` và `node --test tests/operations.test.cjs`.
+
+
+### Liên hệ quản trị viên
+
+- Độc giả chọn **Liên hệ admin** trên navbar (`/contact`), nhập tiêu đề và nội dung, sau đó xem phản hồi trong từng yêu cầu. Đăng nhập để gửi và xem lịch sử riêng.
+- Admin chọn **Liên hệ độc giả** trong menu quản trị (`/admin/contact`) để lọc yêu cầu, trả lời và đánh dấu đã giải quyết. Người gửi hoặc admin có thể mở lại yêu cầu.
+- Các phản hồi được lưu vào database dùng chung (`contact_requests`, `contact_replies`). Chỉ chủ yêu cầu và admin truy cập được nội dung; thủ thư không được đọc hộp thư admin.
+- Gửi phản hồi/đổi trạng thái cập nhật tại chỗ, không chạy polling nền. Chọn **Làm mới** để kiểm tra phản hồi mới. Không gửi email hay thông báo đẩy.
+- Bảng mới được tạo tự động khi khởi động ứng dụng; không cần thay đổi dữ liệu sách, tài khoản hoặc chat cũ.
+
+
+### Mượn nhanh, đặt chỗ và trả sách bằng QR
+
+- Độc giả chọn **Mượn nhanh** trong danh mục hoặc trang sách. Web lập phiếu ngay, trừ kho trong giao dịch và dùng thời hạn mặc định 14 ngày (admin có thể đổi). Chọn **Sách của tôi** hoặc **Mượn trả tự động** để xem phiếu và QR trả sách.
+- Mỗi hồ sơ có mã thư viện ổn định `DG-001`, `DG-002`… dựa trên ID hồ sơ; có thể có khoảng trống do hồ sơ đã xóa hoặc tài khoản nhân viên. Mã hồ sơ cũ vẫn được giữ cho tương thích dữ liệu. Thẻ QR được tạo/tải tại **Hồ sơ cá nhân**.
+- Có hai luồng trả: (1) admin/thủ thư chọn trả tại **Mượn / Trả sách**, (2) độc giả xuất trình QR, admin/thủ thư mở **Quét QR mượn trả**, quét camera hoặc chọn ảnh, kiểm tra rồi bấm **Xác nhận đã nhận sách**. Quét mã đơn thuần không thay đổi kho. Các lần xác nhận lặp không tăng kho thêm.
+- Chỉ chủ phiếu và admin/thủ thư được xem QR/biên nhận; chỉ admin/thủ thư được nhận sách và xác nhận thu phí. QR có chữ ký và mã bảo vệ lưu trong database; không chứa mật khẩu, không thay thế đăng nhập, không phụ thuộc hostname. Giữ ổn định SECRET_KEY khi deploy để QR đã cấp còn dùng được.
+- Phiếu quá hạn hiển thị số ngày và phí. Vào **Cấu hình** ngay trong trạm QR (`/circulation/scan#settings`) để nhập mã BIN ngân hàng 6 số, tài khoản, chủ tài khoản và phí/ngày. Để trống cả ba thông tin ngân hàng nếu chưa dùng QR. Phí mặc định 5.000 đ/ngày khi chưa cấu hình, cho phép đặt 0. Khoản phí được chốt tại lúc nhận sách.
+- QR chuyển khoản sử dụng [Quick Link VietQR.io](https://www.vietqr.io/qr-dong). Thông tin nhận tiền, số tiền và mã phiếu được gửi cho dịch vụ tạo ảnh; không gửi tên/email độc giả. Không tích hợp webhook hoặc tự động xác minh giao dịch ngân hàng: nhân viên đối soát thực tế rồi đánh dấu đã thu. Có thể nhận sách trước và giữ khoản phí chưa thanh toán.
+- Hết sách: độc giả đặt chỗ tại trang chi tiết. Hàng đợi được ưu tiên theo thứ tự đăng ký cho luồng mượn nhanh; khi có bản trả về, quay lại trang sách để kiểm tra và nhận lượt. Admin/thủ thư vẫn quyết định việc lập phiếu trực tiếp tại quầy. Không gửi email/push tự động.
+- Phần sơ đồ và vị trí kệ đã được gỡ. Dữ liệu kệ cũ được giữ trong database để tương thích, không còn giao diện/API quản lý.
+- Camera cần HTTPS hoặc localhost và quyền của trình duyệt. Ở địa chỉ IP qua HTTP, dùng chọn ảnh QR hoặc máy quét nhập văn bản. QR được đọc trên thiết bị; camera tắt khi dừng/rời trang.
+- Các bảng mới tự tạo khi khởi động trên SQLite hoặc PostgreSQL; không xóa phiếu cũ. Các yêu cầu chờ từ phiên bản trước vẫn xử lý tại **Yêu cầu mượn cũ**; endpoint yêu cầu mượn cũ chuyển sang mượn nhanh.
+- Cài dependency: `pip install -r requirements.txt`; chạy `python run.py` tại cổng 5000. Kiểm tra Python: `python -m pytest -q`; JavaScript: `node --test tests/qr_scanner.test.cjs tests/interaction.test.cjs tests/page_motion.test.cjs tests/operations.test.cjs`.
+
+
+### Trạm QR riêng cho admin và thủ thư
+
+- Trang quản trị có nút **Mở trạm QR mượn trả**. Trạm tại `/circulation/scan` có giao diện riêng, không kèm sidebar quản trị hoặc navbar độc giả.
+- Người chưa đăng nhập được đưa tới `/circulation/login`; chỉ tài khoản admin/thủ thư đang hoạt động đăng nhập được. Tài khoản độc giả bị chặn cả ở giao diện lẫn backend, bao gồm thao tác cấu hình. Dùng cùng tài khoản/phiên của web; tài khoản Google có thể đăng nhập trên web trước rồi mở trạm.
+- **Quét QR** và **Cấu hình mượn trả & nhận phí** nằm trên cùng trang. Cả admin và thủ thư được chỉnh số ngày mượn, phí/ngày và tài khoản nhận phí. Đường dẫn cấu hình cũ chuyển về trạm QR.
+- Màn xem phiếu sau quét và xác nhận nhận sách của nhân viên dùng cùng giao diện trạm; độc giả vẫn có trang QR phiếu của mình.
+- `/shelves` và `/admin/shelves/suggest` đã bị gỡ; không còn phân kệ, sơ đồ, bộ lọc mã kệ hoặc thông tin tầng/cánh trong cấu hình.
+
+
+### Quét nhiều QR liên tục
+
+- Trạm QR tải kết quả vào hộp thoại ngay trên trang quét. Mở thẻ DG sẽ hiện các phiếu đang mượn; chọn phiếu để kiểm tra trong cùng hộp thoại.
+- Xác nhận nhận sách/thu phí thành công sẽ đóng hộp thoại và hiện thông báo ngắn, giữ nguyên trang quét. Camera được bật lại nếu đang dùng camera trước đó; quét lại mã vừa hoàn tất bị bỏ qua để tránh lặp.
+- Khoản phí chưa thu được nhắc trong thông báo và có nút xem lại; không tự đánh dấu đã thanh toán. Có thể đóng hộp thoại hoặc dùng Escape để quét tiếp; không đóng giữa lúc yêu cầu xác nhận đang gửi.
+- Khi mở link phiếu trực tiếp bằng tài khoản nhân viên, web đưa về trạm và mở phiếu trong hộp thoại. Trang QR/biên nhận của độc giả vẫn hoạt động như trước.
+
+
+### Trang QR độc giả tự cập nhật
+
+Trang QR trả sách của độc giả kiểm tra trạng thái mỗi 3 giây khi đang hiển thị. Sau khi nhân viên xác nhận nhận sách (QR hoặc thủ công), QR được thay bằng biên nhận ngay tại chỗ, không tải lại trang. Nếu còn phí chưa thu, kiểm tra trạng thái thanh toán mỗi 10 giây; dừng khi hoàn tất. Tab ẩn sẽ tạm dừng, mở lại kiểm tra ngay. Endpoint chỉ cho chủ phiếu hoặc nhân viên đọc, phản hồi không được cache và chỉ trả nội dung giao diện khi trạng thái thay đổi.

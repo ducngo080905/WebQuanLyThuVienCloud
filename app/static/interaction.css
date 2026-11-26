@@ -1,6 +1,5 @@
 /* Stable layout and immediate action feedback. Shared movement is in page_motion.css. */
 html{scrollbar-gutter:stable}
-html:has(body.chat-embed){scrollbar-gutter:auto}
 .nav a>.material-symbols-outlined{width:22px;flex-shrink:0;white-space:nowrap}
 .material-symbols-outlined{inline-size:1em;block-size:1em;box-sizing:content-box;flex-shrink:0;overflow:hidden;white-space:nowrap}
 .shell-icon{display:inline-flex;align-items:center;justify-content:center}

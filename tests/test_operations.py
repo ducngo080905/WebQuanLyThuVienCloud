@@ -39,7 +39,7 @@ def test_server_blocks_pages_api_and_writes_but_admin_stays_online(operations_ap
     app,clients,users=operations_app
     clients['admin'].post('/admin/maintenance',data={'enabled':'1'})
     for client in (clients['reader'],clients['librarian'],app.test_client()):
-        for path in ('/','/catalog','/my-books','/inbox','/register','/covers/1','/api/books','/chat/api/unread'):
+        for path in ('/','/catalog','/my-books','/inbox','/register','/covers/1','/api/books'):
             response=client.get(path)
             assert response.status_code==503,path
             assert response.headers['X-Library-Maintenance']=='1'

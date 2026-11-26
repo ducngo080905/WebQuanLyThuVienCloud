@@ -18,16 +18,10 @@ html[data-page-loading] .page-load-indicator::after { animation: library-loading
   .reader-account-chevron { transition: transform var(--motion-fast) var(--motion-ease); }
   .modal-overlay.open { animation: library-backdrop-in var(--motion-fast) ease-out; }
   .modal-overlay.open .modal { animation: library-panel-in var(--motion-panel) var(--motion-ease); }
-  .operations-dialog[open], .chat-dialog[open] { animation: library-panel-in var(--motion-panel) var(--motion-ease); }
-  .operations-dialog[open]::backdrop, .chat-dialog[open]::backdrop { animation: library-backdrop-in var(--motion-fast) ease-out; }
+  .operations-dialog[open] { animation: library-panel-in var(--motion-panel) var(--motion-ease); }
+  .operations-dialog[open]::backdrop { animation: library-backdrop-in var(--motion-fast) ease-out; }
   .staff-drawer[open] { animation: library-drawer-in var(--motion-panel) var(--motion-ease); }
   .staff-drawer[open]::backdrop { animation: library-backdrop-in var(--motion-panel) ease-out; }
-  .chat-widget-panel {
-    transform: translateY(10px);
-    transition: opacity var(--motion-fast) ease-out, transform var(--motion-panel) var(--motion-ease), visibility var(--motion-panel);
-  }
-  .chat-widget.is-open .chat-widget-panel { transform: translateY(0); }
-  .chat-widget-logo, .chat-widget-close-icon { transition: opacity var(--motion-fast) ease-out; }
   .action-feedback > *, .release-notice { animation: library-panel-in var(--motion-fast) var(--motion-ease); }
   @keyframes library-panel-in { from { opacity: 0; transform: translateY(8px); } }
   @keyframes library-backdrop-in { from { opacity: 0; } }
@@ -40,24 +34,24 @@ html[data-page-loading] .page-load-indicator::after { animation: library-loading
     .modal-overlay .modal { transform: translateY(8px); transition: transform var(--motion-panel) var(--motion-ease); }
     .modal-overlay.open { opacity: 1; animation: none; }
     .modal-overlay.open .modal { transform: none; animation: none; }
-    .operations-dialog, .chat-dialog, .staff-drawer {
+    .operations-dialog, .staff-drawer {
       opacity: 0; transform: translateY(8px);
       transition: opacity var(--motion-fast) ease-out, transform var(--motion-panel) var(--motion-ease),
         display var(--motion-panel) allow-discrete, overlay var(--motion-panel) allow-discrete;
     }
     .staff-drawer { transform: translateX(-100%); }
-    .operations-dialog[open], .chat-dialog[open], .staff-drawer[open] { opacity: 1; transform: none; animation: none; }
-    .operations-dialog::backdrop, .chat-dialog::backdrop, .staff-drawer::backdrop {
+    .operations-dialog[open], .staff-drawer[open] { opacity: 1; transform: none; animation: none; }
+    .operations-dialog::backdrop, .staff-drawer::backdrop {
       opacity: 0;
       transition: opacity var(--motion-fast) ease-out, display var(--motion-panel) allow-discrete, overlay var(--motion-panel) allow-discrete;
     }
-    .operations-dialog[open]::backdrop, .chat-dialog[open]::backdrop, .staff-drawer[open]::backdrop { opacity: 1; animation: none; }
+    .operations-dialog[open]::backdrop, .staff-drawer[open]::backdrop { opacity: 1; animation: none; }
     @starting-style {
       .modal-overlay.open { opacity: 0; }
-      .modal-overlay.open .modal, .operations-dialog[open], .chat-dialog[open] { transform: translateY(8px); }
-      .operations-dialog[open], .chat-dialog[open], .staff-drawer[open] { opacity: 0; }
+      .modal-overlay.open .modal, .operations-dialog[open] { transform: translateY(8px); }
+      .operations-dialog[open], .staff-drawer[open] { opacity: 0; }
       .staff-drawer[open] { transform: translateX(-100%); }
-      .operations-dialog[open]::backdrop, .chat-dialog[open]::backdrop, .staff-drawer[open]::backdrop { opacity: 0; }
+      .operations-dialog[open]::backdrop, .staff-drawer[open]::backdrop { opacity: 0; }
     }
   }
   @media (min-width: 1025px) {

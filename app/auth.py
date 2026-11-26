@@ -49,7 +49,8 @@ def install_auth(app):
                 flash('Biểu mẫu đã cũ hoặc phiên làm việc đã thay đổi. Vui lòng thử lại trên trang vừa tải.', 'info')
                 safe_pages = {'auth.login': 'auth.login', 'auth.register': 'auth.register',
                               'auth.profile': 'auth.profile', 'auth.accounts': 'auth.accounts',
-                              'auth.setup': 'auth.setup'}
+                              'auth.setup': 'auth.setup', 'circulation.portal_login': 'circulation.portal_login',
+                              'circulation.scan': 'circulation.scan', 'circulation.settings': 'circulation.scan'}
                 target = url_for(safe_pages.get(request.endpoint, 'auth.library_home'))
                 if request.endpoint == 'auth.setup':
                     target = url_for('auth.setup', token=request.args.get('token', ''))
@@ -201,7 +202,7 @@ def account_form(mode):
 def logout():
     g.activity_logout_session = session.get('presence_session')
     session.clear()
-    return redirect(url_for('auth.login'))
+    return redirect(url_for('circulation.portal_login' if request.form.get('qr_portal')=='1' else 'auth.login'))
 
 
 @auth.route('/profile', methods=['GET', 'POST'])
@@ -322,29 +323,8 @@ def render_catalog():
 @auth.post('/borrow/request/<int:book_id>')
 @login_required
 def request_book(book_id):
-    if g.user.role != 'reader':
-        abort(403)
-    book = db.get_or_404(Book, book_id)
-    if book.available < 1:
-        flash('Sách đã được mượn hết. Vui lòng chọn sách khác.', 'info')
-    elif Issue.query.filter_by(book_id=book.id, member_id=g.user.member_id, status='issued').first():
-        flash('Bạn đang mượn sách này.', 'info')
-    elif BorrowRequest.query.filter_by(book_id=book.id, member_id=g.user.member_id, status='pending').first():
-        flash('Bạn đã gửi yêu cầu cho sách này. Vui lòng chờ thủ thư duyệt.', 'info')
-    else:
-        db.session.add(BorrowRequest(book_id=book.id, member_id=g.user.member_id))
-        try:
-            db.session.commit()
-            flash('Đã gửi yêu cầu mượn! Theo dõi trạng thái tại Sách của tôi.', 'success')
-        except IntegrityError:
-            db.session.rollback()
-            flash('Yêu cầu đã tồn tại. Vui lòng chờ thủ thư duyệt.', 'info')
-    path, separator, query = request.headers.get('X-Library-Page', '').partition('?')
-    allowed = (url_for('auth.library_home'), url_for('auth.catalog'),
-               url_for('features.detail', book_id=book_id))
-    if path in allowed:
-        return redirect(path + separator + query, code=303)
-    return redirect(url_for('auth.my_books'))
+    from app.circulation import borrow_now
+    return borrow_now(book_id)
 
 
 @auth.post('/borrow/requests/<int:request_id>/cancel')

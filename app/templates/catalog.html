@@ -14,7 +14,7 @@
         <fieldset><legend>Tình trạng sách</legend>{% for value,label in [('', 'Tất cả sách'),('available','Có thể mượn ngay'),('unavailable','Đang được mượn hết')] %}<label class="discovery-radio"><input type="radio" name="availability" form="discoveryFilters" value="{{ value }}" {% if availability==value %}checked{% endif %}><span>{{ label }}</span></label>{% endfor %}</fieldset>
         <div class="form-group"><label for="discoverySort">Sắp xếp theo</label><select name="sort" id="discoverySort" form="discoveryFilters">{% for value,label in [('newest','Mới thêm gần đây'),('title','Tên sách A–Z'),('author','Tên tác giả A–Z'),('available','Số bản có sẵn nhiều nhất')] %}<option value="{{ value }}" {% if sort==value %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></div>
         <button class="btn discovery-apply" type="submit" form="discoveryFilters">Áp dụng bộ lọc</button>
-        <div class="discovery-help"><span class="material-symbols-outlined" aria-hidden="true">info</span><p>Chọn <strong>Thông tin &amp; đọc thử</strong> để tìm hiểu cuốn sách trước khi gửi yêu cầu mượn.</p></div>
+        <div class="discovery-help"><span class="material-symbols-outlined" aria-hidden="true">info</span><p>Chọn <strong>Thông tin &amp; đọc thử</strong> để tìm hiểu cuốn sách trước khi mượn nhanh.</p></div>
       </aside>
       <div class="discovery-results-column"><p id="discoveryStatus" class="discovery-status" role="status" aria-live="polite"></p><div id="discoveryResults">{% include '_catalog_results.html' %}</div></div>
     </div>

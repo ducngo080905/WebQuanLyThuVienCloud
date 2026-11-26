@@ -29,7 +29,7 @@ def test_required_phone_detected_live_and_validated(live_app):
     assert client.post('/profile/required-phone',data={'phone':'090 123 4567'}).json['ok']
     assert user.member.phone=='0901234567'
     assert not client.get('/live-updates').json['phone_required']
-    assert client.post(f'/borrow/request/{book.id}').status_code==302
+    assert client.post(f'/borrow/request/{book.id}').status_code==303
     # Admin clearing the phone is detected on the next poll, no page reload needed.
     user.member.phone='';db.session.commit()
     assert client.get('/live-updates').json['phone_required']

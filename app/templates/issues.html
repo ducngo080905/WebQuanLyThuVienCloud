@@ -4,7 +4,7 @@
 <div class="page-header">
   <div class="eyebrow">Lưu thông tài liệu · Phân hệ Thủ thư</div>
   <h2>Mượn / Trả sách</h2>
-  <p>Theo dõi các lượt mượn và trả sách</p>
+  <p>Theo dõi các lượt mượn và trả sách · <a href="{{ url_for('circulation.scan') }}">Quét QR trả sách</a></p>
 <button class="btn btn-primary" onclick="openModal('issueModal')">＋ Lập phiếu mượn</button>
 </div>
 
@@ -23,9 +23,9 @@
       <tbody>
         {% for issue in issues %}
         <tr data-row data-filter="{{ 'returned' if issue.status == 'returned' else ('overdue' if issue.due_date.date().isoformat() < today else 'issued') }}">
-          <td style="color:var(--muted);font-size:.8rem">{{ loop.index }}</td>
+          <td style="color:var(--muted);font-size:.8rem"><a href="{{ url_for('circulation.return_page',issue_id=issue.id) }}">#{{ issue.id }}</a></td>
           <td><strong>{{ issue.book.title }}</strong></td>
-          <td>{{ issue.member.name }}</td>
+          <td>{{ issue.member.name }}<small style="display:block">{{ issue.member.library_code }}</small></td>
           <td>{{ issue.issue_date.strftime('%d/%m/%Y') }}</td>
           <td>{{ issue.due_date.strftime('%d/%m/%Y') }}</td>
           <td>{{ issue.return_date.strftime('%d/%m/%Y') if issue.return_date else '–' }}</td>
@@ -78,7 +78,7 @@
           <select name="member_id" required>
             <option value="">-- Chọn thành viên --</option>
             {% for m in members %}
-            <option value="{{ m.id }}">{{ m.name }} ({{ m.member_id }})</option>
+            <option value="{{ m.id }}">{{ m.name }} ({{ m.library_code }})</option>
             {% endfor %}
           </select>
         </div>

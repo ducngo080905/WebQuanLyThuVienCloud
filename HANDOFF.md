@@ -204,3 +204,44 @@ Chưa triển khai hosting online; push GitHub chỉ đưa code lên, không t�
 
 ## Color changes reverted at user request
 - User asked to remove all color/background edits beginning with the message "web toàn màu trắng thôi", including its follow-up consistency correction. Removed palette.css and its base.html include entirely, restoring pre-palette component colors/backgrounds. Preserved all earlier layout/navigation/notification/bookshelf/performance changes and the sticky reader navbar. No Git reset, no other user work reverted; no push.
+
+
+## Gỡ tin nhắn (16/11/2026)
+- Đã gỡ blueprint chat, giao diện messenger/widget, badge/polling, camera và tài nguyên chat. Các ghi chú chat phía trên là lịch sử triển khai, không còn mô tả tính năng hiện tại.
+- Ảnh đại diện chuyển sang app/avatars.py, /profile/avatar và /profile/avatars/<id>; người dùng xem ảnh của mình, admin xem được tất cả. Thông báo và nhắc trả sách vẫn dùng app/messages.py.
+- Giữ nguyên bảng và dữ liệu chat cũ, mappings/schema tương thích; không cung cấp endpoint đọc/ghi tin nhắn. Không tự xóa dữ liệu trên database.
+
+
+## Liên hệ admin (16/11/2026)
+- Thêm app/contact.py, ContactRequest/ContactReply và các template/CSS contact. Navbar độc giả có /contact; menu admin có /admin/contact.
+- Hỗ trợ yêu cầu có tiêu đề, trao đổi văn bản riêng, trạng thái waiting/replied/closed, mở lại, phân trang, lọc admin. Kiểm tra quyền chủ yêu cầu/admin ở cả đọc, trả lời và đổi trạng thái; CSRF dùng middleware chung.
+- Phản hồi và đổi trạng thái dùng data-refresh của interaction.js; không polling. Giờ UTC lưu DB, hiển thị UTC+7 định dạng 24 giờ.
+- tests/test_contact.py kiểm tra trao đổi hai phía, quyền truy cập, validation/XSS/CSRF, phân trang/lọc, xóa tài khoản.
+
+
+## Mượn nhanh và QR (17/11/2026)
+- Thêm app/circulation.py, templates circulation/return_loan/scan_qr/circulation_settings/shelves, circulation.css và qr_scanner.js. Model mới: LibraryQRPass, BookReservation, CirculationConfig, ReturnReceipt. Không thêm cột vào bảng cũ. Member.library_code tính DG theo ID; giữ member_id cũ.
+- Quick loan serialize theo book với UPDATE no-op rồi kiểm tra stock/active loan/FIFO; partial unique index chặn đặt chỗ trùng. Manual issue decrement atomically. complete_return dùng chung cho thủ công và QR, bảo vệ tăng kho một lần, lưu người xác nhận và phí đã chốt.
+- QR PNG tạo nội bộ bằng qrcode 8.2, payload LIBQR + chữ ký itsdangerous + nonce persisted. Routes protected owner/staff; scanner staff-only. Camera/file decoder html5-qrcode 2.3.8 vendored cùng LICENSE (Apache-2.0), chỉ tải tại trang scan. Không khôi phục chat/Android.
+- VietQR Quick Link chỉ hiển thị nếu cấu hình đầy đủ; admin cấu hình bank BIN/account/owner, ngày mượn, fee và labels zone A-D. Không ngân hàng webhook, không giả định ảnh QR = đã trả tiền.
+- QA dùng database in-memory và HTML giả lập có dữ liệu thử, không tạo giao dịch trên database thật. Đã đọc QR PNG thật bằng scanFile trong trình duyệt. Camera vật lý chưa thử. Các file HTML/PNG QA tạm đã xóa. SQLite backup trước chạy nằm trong instance/before-qr-20261117-080238.db.
+
+
+## Trạm QR độc lập, bỏ kệ sách (17/11/2026)
+- qr_portal_base.html + qr_login.html tạo giao diện riêng; /circulation/login kiểm tra role admin/librarian, active, password và CSRF; giữ chính sách thử đăng nhập hiện tại. portal_required bảo vệ quét/config/confirm-return/confirm-payment.
+- /circulation/scan xử lý GET quét và POST cấu hình; _qr_settings.html nhúng trực tiếp. Cho cả admin và librarian chỉnh cấu hình theo yêu cầu mới; /admin/circulation-settings GET chỉ chuyển về #settings, POST giữ tương thích và cùng kiểm tra quyền.
+- Nút Mở trạm QR trên dashboard; menu staff vẫn có lối mở quét. return_loan.html chọn portal shell cho staff, base thường cho độc giả. Logout trạm chuyển lại login trạm.
+- Gỡ routes shelves/suggest_shelves, template sơ đồ, trường và hiển thị shelf trên giao diện, bộ lọc tìm mã kệ, settings zone và CSS kệ. BookInfo.shelf và các cấu hình cũ giữ nguyên trong DB, không xóa dữ liệu.
+
+
+## Quét liên tục trong hộp thoại (17/11/2026)
+- X-QR-Dialog=1 cho GET scan/return trả JSON {title,html}; chỉ staff được nhận partial. _return_details.html và _qr_member.html là partial đã escape dữ liệu.
+- POST confirm-return/confirm-payment với cùng header trả JSON, không redirect/flash. JS dialog handler chặn submit trước interaction.js, đóng sau thành công, toast 3.5s (10s nếu còn phí), resume camera khi trước đó active và chống scan lại cùng mã vừa hoàn tất.
+- Staff GET /loans/<id>/return chuyển tới /circulation/scan?loan=<id>; JS mở hộp thoại và dọn tham số khi đóng. Các xác nhận backend cũ vẫn giữ tương thích, kiểm tra quyền/CSRF và idempotency.
+- Kiểm tra: 146 Python + 22 JavaScript pass; UI thật mở phiếu #4 đã trả trong dialog rồi đóng, giữ trạm sẵn sàng. Không tạo/thay đổi giao dịch thật khi kiểm tra UI. Camera vật lý chưa thử.
+
+
+## Đồng bộ QR phía độc giả (17/11/2026)
+- GET /loans/<id>/live-status kiểm tra accessible_issue, trả state/status/changed/complete, chỉ render _return_details khi state thay đổi. Cache-Control private,no-store.
+- reader_loan_live.js chỉ tải trên trang QR độc giả: polling 3s lúc mượn, 10s khi đã nhận sách nhưng còn phí; pause hidden/pagehide, resume pageshow/online/visibility; abort/generation chặn response cũ. Dừng khi hoàn tất.
+- Thay #returnDetails và heading tại chỗ, không location.reload; QR trả sách không còn trong partial khi đã nhận. Kiểm tra backend before/after xác nhận, quyền riêng tư và JS lifecycle trong tests/test_circulation.py, tests/reader_loan_live.test.cjs.

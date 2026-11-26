@@ -4,6 +4,7 @@ from io import BytesIO
 import secrets
 from flask import Blueprint, abort, current_app, flash, g, redirect, render_template, request, send_file, url_for, has_request_context
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm import joinedload
 from app import db
 from app.models import (Book, BookInfo, SamplePage, Issue, User, BorrowRequest,
                         RenewalRequest, LibrarySetting, AccountRecovery, PasswordChangeRequired, RecoveryCredential)
@@ -36,8 +37,11 @@ def setting(key, default=0):
 
 
 def fine_amount(issue):
-    end = (issue.return_date or datetime.now()).date()
-    return max(0, (end-issue.due_date.date()).days)*setting('fine_per_day')
+    from app.circulation import today
+    if issue.return_receipt:
+        return issue.return_receipt.amount
+    end = issue.return_date.date() if issue.return_date else today()
+    return max(0, (end-issue.due_date.date()).days)*setting('fine_per_day', 5000)
 
 
 def install_features(app):
@@ -46,7 +50,7 @@ def install_features(app):
         pending_recovery_count=0
         if g.get('user') and g.user.role=='admin':
             pending_recovery_count=AccountRecovery.query.filter_by(status='pending').count()
-        return {'fine_amount':fine_amount,'fine_rate':setting('fine_per_day'),
+        return {'fine_amount':fine_amount,'fine_rate':setting('fine_per_day',5000),
                 'pending_recovery_count':pending_recovery_count}
 
 
@@ -96,7 +100,12 @@ def detail(book_id):
     if g.user:
         pending = BorrowRequest.query.filter_by(book_id=book_id,member_id=g.user.member_id,status='pending').first() is not None
         active = Issue.query.filter_by(book_id=book_id,member_id=g.user.member_id,status='issued').first() is not None
-    return render_template('book_detail.html',book=book,pending=pending,active=active)
+    from app.circulation import eligible_queue
+    queue = eligible_queue(book)
+    queue_position = next((i+1 for i,item in enumerate(queue) if g.user and item.member_id==g.user.member_id), None)
+    recommendations = Book.query.options(joinedload(Book.cover)).filter(Book.id!=book.id).order_by((Book.genre==book.genre).desc(), (Book.author==book.author).desc(), Book.available.desc(), Book.id).limit(3).all()
+    return render_template('book_detail.html',book=book,pending=pending,active=active,
+                           queue_position=queue_position, queue_total=len(queue), recommendations=recommendations)
 
 
 @features.get('/book-samples/<int:page_id>')
@@ -125,7 +134,7 @@ def edit_book(book_id):
             pages=int(form['pages']) if form.get('pages') else None
             if (year is not None and not 1<=year<=datetime.now().year+1) or (pages is not None and not 1<=pages<=100000):
                 raise ValueError('Năm xuất bản hoặc số trang không hợp lệ.')
-            for field,limit in [('genre',50),('publisher',150),('language',50),('shelf',60),('description',20000)]:
+            for field,limit in [('genre',50),('publisher',150),('language',50),('description',20000)]:
                 if len(form.get(field,''))>limit:
                     raise ValueError(f'Thông tin {field} vượt quá độ dài cho phép.')
             sample_files=[f for f in request.files.getlist('samples') if f.filename]
@@ -139,7 +148,7 @@ def edit_book(book_id):
             book.title,book.author,book.isbn,book.genre=title,author,isbn,form.get('genre','').strip()
             if not book.info:
                 book.info=BookInfo()
-            for field in ('publisher','language','shelf','description'):
+            for field in ('publisher','language','description'):
                 setattr(book.info,field,form.get(field,'').strip())
             book.info.year,book.info.pages=year,pages
             if image:

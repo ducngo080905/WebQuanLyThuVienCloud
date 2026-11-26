@@ -154,13 +154,10 @@ def test_reader_request_approval_stock_and_return(auth_app):
     db.session.add_all([book,staff_member]);db.session.flush()
     staff=User(email=staff_member.email,role='librarian',member_id=staff_member.id)
     staff.set_password('secret123');db.session.add(staff);db.session.commit()
-    assert 'Yêu cầu mượn'.encode() in c.get('/catalog').data
-    endpoint=f'/borrow/request/{book.id}'
-    updated=c.post(endpoint,headers={'X-Library-Page':'/catalog?q=Request'},follow_redirects=True)
-    assert updated.request.path=='/catalog' and updated.request.args['q']=='Request'
-    assert 'Đã gửi · Xem yêu cầu' in updated.text
-    fallback=c.post(endpoint,headers={'X-Library-Page':'//example.com/catalog'})
-    assert fallback.status_code==302 and fallback.location=='/my-books'
+    assert 'Mượn nhanh' in c.get('/catalog').text
+    # Older pending requests remain reviewable after switching the reader UI.
+    db.session.add(BorrowRequest(book_id=book.id,member_id=reader.member_id))
+    db.session.commit()
     item=BorrowRequest.query.one()
     assert book.available==1 and item.member_id==reader.member_id
     assert c.post(f'/admin/borrow-requests/{item.id}/review',data={'action':'approve','due_date':'2099-01-01'}).status_code==403
@@ -182,14 +179,14 @@ def test_request_ownership_cancel_reject_and_unavailable(auth_app):
     owner=User.query.one()
     book=Book(title='Only Copy',author='Author',isbn='REQ-2',quantity=1,available=1)
     db.session.add(book);db.session.commit()
-    c.post(f'/borrow/request/{book.id}')
+    db.session.add(BorrowRequest(book_id=book.id,member_id=owner.member_id));db.session.commit()
     item=BorrowRequest.query.one()
     other=auth_app.test_client();legacy_account(other,email='other@example.com')
     assert b'Only Copy' not in other.get('/my-books').data
     assert other.post(f'/borrow/requests/{item.id}/cancel').status_code==403
     c.post(f'/borrow/requests/{item.id}/cancel')
     db.session.expire_all();assert item.status=='cancelled' and book.available==1
-    c.post(f'/borrow/request/{book.id}')
+    db.session.add(BorrowRequest(book_id=book.id,member_id=owner.member_id));db.session.commit()
     pending=BorrowRequest.query.filter_by(status='pending').one()
     owner.role='admin';db.session.commit()
     book.available=0;db.session.commit()
@@ -212,7 +209,7 @@ def test_request_csrf_and_invalid_due_date(auth_app):
     assert BorrowRequest.query.count()==0
     c.get('/catalog')
     with c.session_transaction() as sess: token=sess['csrf_token']
-    c.post(f'/borrow/request/{book.id}',data={'csrf_token':token})
+    db.session.add(BorrowRequest(book_id=book.id,member_id=user.member_id));db.session.commit()
     item=BorrowRequest.query.one()
     user.role='admin';db.session.commit()
     c.post(f'/admin/borrow-requests/{item.id}/review',data={'csrf_token':token,'action':'approve','due_date':'2000-01-01'})

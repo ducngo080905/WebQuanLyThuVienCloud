@@ -76,8 +76,8 @@ def add_book():
         description = data.get('description', '').strip()
         if len(description) > 20000:
             raise ValueError('Giới thiệu sách vượt quá độ dài cho phép.')
-        metadata = {field: data.get(field, '').strip() for field in ('publisher', 'language', 'shelf')}
-        if any(len(metadata[field]) > limit for field, limit in [('publisher', 150), ('language', 50), ('shelf', 60)]):
+        metadata = {field: data.get(field, '').strip() for field in ('publisher', 'language')}
+        if any(len(metadata[field]) > limit for field, limit in [('publisher', 150), ('language', 50)]):
             raise ValueError('Thông tin xuất bản vượt quá độ dài cho phép.')
         year = int(data['year']) if data.get('year') else None
         pages = int(data['pages']) if data.get('pages') else None
@@ -248,7 +248,7 @@ def add_issue():
         return redirect(url_for('main.issues'))
     book    = Book.query.get_or_404(int(data['book_id']))
     member = Member.query.get_or_404(int(data['member_id']))
-    if book.available < 1:
+    if not Book.query.filter(Book.id==book.id, Book.available>0).update({Book.available:Book.available-1}, synchronize_session=False):
         flash('Sách hiện không còn bản nào để cho mượn!', 'danger')
         return redirect(url_for('main.issues'))
     issue = Issue(
@@ -257,7 +257,6 @@ def add_issue():
         issue_date = issue_date,
         due_date  = due_date
     )
-    book.available -= 1
     db.session.add(issue)
     db.session.commit()
     flash('Lập phiếu mượn sách thành công!', 'success')
@@ -277,14 +276,11 @@ def return_book(issue_id):
     if return_date.date() < issue.issue_date.date():
         flash('Ngày trả không được trước ngày mượn.', 'danger')
         return redirect(url_for('main.issues'))
-    changed = Issue.query.filter_by(id=issue_id, status='issued').update(
-        {Issue.status: 'returned', Issue.return_date: return_date}, synchronize_session=False)
-    if not changed:
+    from app.circulation import complete_return
+    if not complete_return(issue, return_date.date(), 'manual'):
         db.session.rollback()
         flash('Phiếu mượn này đã được trả sách.', 'info')
         return redirect(url_for('main.issues'))
-    Book.query.filter_by(id=issue.book_id).update(
-        {Book.available: Book.available + 1}, synchronize_session=False)
     db.session.commit()
     flash('Trả sách thành công!', 'success')
     return redirect(url_for('main.issues'))

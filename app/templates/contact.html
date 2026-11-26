@@ -1,0 +1,25 @@
+{% extends 'base.html' %}
+{% block title %}{{ 'Liên hệ từ độc giả' if admin_view else 'Liên hệ admin' }} – Thư Viện{% endblock %}
+{% block page_styles %}<link rel="stylesheet" href="{{ url_for('static', filename='contact.css') }}">{% endblock %}
+{% block content %}
+<div class="contact-page">
+  <header class="contact-heading"><span class="eyebrow">Hỗ trợ thư viện</span><h1>{{ 'Liên hệ từ độc giả' if admin_view else 'Liên hệ admin' }}</h1><p>{{ 'Xem yêu cầu, trả lời và hỗ trợ độc giả từ xa.' if admin_view else 'Cần hỗ trợ mượn sách, tài khoản hoặc góp ý? Gửi yêu cầu để trao đổi trực tiếp với quản trị viên.' }}</p></header>
+  <div class="contact-layout {{ 'contact-admin' if admin_view else '' }}">
+    {% if not admin_view %}<section class="contact-card"><h2>Gửi yêu cầu mới</h2><p class="contact-muted">Chỉ bạn và quản trị viên có thể xem nội dung trao đổi.</p>
+      <form method="post" action="{{ url_for('contact.index') }}" class="contact-form">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        {% if error %}<p class="alert alert-danger" role="alert">{{ error }}</p>{% endif %}
+        <label for="contactSubject">Tiêu đề</label><input id="contactSubject" name="subject" required maxlength="160" placeholder="Bạn cần hỗ trợ điều gì?" value="{{ request.form.get('subject', '') }}">
+        <label for="contactBody">Nội dung</label><textarea id="contactBody" name="body" rows="7" required maxlength="5000" placeholder="Mô tả vấn đề và thông tin cần admin hỗ trợ…">{{ request.form.get('body', '') }}</textarea>
+        <small class="contact-muted">Tối đa 5.000 ký tự. Không gửi mật khẩu hoặc mã xác thực.</small>
+        <button class="btn btn-primary" type="submit">Gửi đến admin <span aria-hidden="true">↗</span></button>
+      </form>
+    </section>{% endif %}
+    <section class="contact-card"><div class="contact-section-heading"><h2>{{ 'Hộp thư hỗ trợ' if admin_view else 'Yêu cầu của bạn' }} <span class="contact-count">{{ items.total }}</span></h2><a class="contact-refresh" href="{{ url_for('contact.admin', status=selected_status) if admin_view else url_for('contact.index') }}">Làm mới</a></div>
+      {% if admin_view %}<nav class="contact-filters" aria-label="Lọc yêu cầu"><a href="{{ url_for('contact.admin') }}" {% if not selected_status %}aria-current="page"{% endif %}>Tất cả</a>{% for state,label in statuses.items() %}<a href="{{ url_for('contact.admin', status=state) }}" {% if selected_status==state %}aria-current="page"{% endif %}>{{ label }}</a>{% endfor %}</nav>{% endif %}
+      <div class="contact-requests">{% for item in items.items %}<a class="contact-request" href="{{ url_for('contact.detail', request_id=item.id) }}"><div class="contact-request-top"><span class="contact-number">#{{ item.id }}</span><span class="contact-status contact-status-{{ item.status }}">{{ statuses[item.status] }}</span></div><h3>{{ item.subject }}</h3>{% if admin_view %}<p class="contact-owner">{{ item.user.member.name }} · {{ item.user.email }}</p>{% endif %}<time datetime="{{ item.updated_at.isoformat() }}Z">Cập nhật {{ item.updated_at|contact_time }}</time><span class="contact-open">Xem trao đổi →</span></a>{% else %}<div class="contact-empty"><span aria-hidden="true">✉</span><h3>{{ 'Chưa có yêu cầu nào' if admin_view else 'Bạn chưa gửi yêu cầu nào' }}</h3><p>{{ 'Các yêu cầu của độc giả sẽ xuất hiện tại đây.' if admin_view else 'Nội dung đã gửi và phản hồi của admin sẽ được lưu tại đây.' }}</p></div>{% endfor %}</div>
+      {% if items.pages>1 %}<nav class="contact-pagination" aria-label="Phân trang">{% if items.has_prev %}<a href="{{ url_for('contact.admin', page=items.prev_num, status=selected_status) if admin_view else url_for('contact.index', page=items.prev_num) }}">← Trước</a>{% endif %}<span>{{ items.page }} / {{ items.pages }}</span>{% if items.has_next %}<a href="{{ url_for('contact.admin', page=items.next_num, status=selected_status) if admin_view else url_for('contact.index', page=items.next_num) }}">Tiếp →</a>{% endif %}</nav>{% endif %}
+    </section>
+  </div>
+</div>
+{% endblock %}
